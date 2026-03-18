@@ -32,12 +32,16 @@ export default function Properties() {
 
       {/* Header */}
       <section className="pt-32 pb-12 px-6">
-        <div className="container mx-auto flex items-end justify-between">
+        <div className="container mx-auto">
+          <div className="mb-6">
+            <BackButton />
+          </div>
+          <div className="flex items-end justify-between">
           <div>
             <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
               Portfólio
             </span>
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
               Nossos imóveis
             </h1>
           </div>

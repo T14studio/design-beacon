@@ -8,7 +8,7 @@ import property6 from "@/assets/property-6.jpg";
 export type Property = {
   id: string;
   title: string;
-  type: "Apartamento" | "Casa" | "Cobertura";
+  type: "Apartamento" | "Casa" | "Cobertura" | "Terreno";
   mode: "Venda" | "Locação";
   price: number;
   location: string;
@@ -193,6 +193,33 @@ export const properties: Property[] = [
     featured: false,
     lat: -23.6010,
     lng: -46.6650,
+  },
+  {
+    id: "terreno-alphaville",
+    title: "Terreno Premium em Alphaville",
+    type: "Terreno",
+    mode: "Venda",
+    price: 3200000,
+    location: "Barueri",
+    neighborhood: "Alphaville",
+    bedrooms: 0,
+    bathrooms: 0,
+    area: 1200,
+    parking: 0,
+    description:
+      "Terreno plano em condomínio fechado de alto padrão. Localização privilegiada com vista para área verde preservada. Pronto para construção do projeto dos seus sonhos.",
+    features: [
+      "Terreno plano",
+      "Condomínio fechado",
+      "Vista para área verde",
+      "Infraestrutura completa",
+      "Segurança 24h",
+      "Portaria blindada",
+    ],
+    images: [property5, property2],
+    featured: false,
+    lat: -23.4900,
+    lng: -46.8450,
   },
 ];
 

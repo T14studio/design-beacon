@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, MapPin } from "lucide-react";
 import hero1 from "@/assets/hero-1.jpg";
 import hero2 from "@/assets/hero-2.jpg";
 import hero3 from "@/assets/hero-3.jpg";
@@ -12,6 +12,8 @@ import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
 import MarketIndicators from "@/components/MarketIndicators";
 import { Button } from "@/components/ui/button";
+
+const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
 const heroImages = [hero1, hero2, hero3];
 const kenburnsClasses = ["animate-kenburns-1", "animate-kenburns-2", "animate-kenburns-3"];
@@ -72,10 +74,10 @@ export default function Index() {
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 max-w-3xl">
               <span className="text-gold-gradient">Imóveis</span>{" "}
-              <span className="text-foreground">de Alto Padrão</span>
+              <span className="text-foreground drop-shadow-sm">de Alto Padrão</span>
             </h1>
 
-            <p className="text-muted-foreground text-lg md:text-xl max-w-xl mb-10 font-light">
+            <p className="text-foreground/70 text-lg md:text-xl max-w-xl mb-10 font-light">
               Encontre residências exclusivas com a curadoria da Ética Áxis Imobiliária.
             </p>
 
@@ -154,6 +156,46 @@ export default function Index() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Map Preview ── */}
+      <section className="py-24 px-6">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <div className="flex items-end justify-between mb-12">
+              <div>
+                <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
+                  Localização
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  Explore no mapa
+                </h2>
+                <p className="text-foreground/60 mt-3 max-w-lg">
+                  Veja a localização exata de cada imóvel e descubra as melhores regiões.
+                </p>
+              </div>
+              <Button asChild variant="outline" className="hidden md:flex border-primary/40 text-primary hover:bg-primary/10">
+                <Link to="/imoveis" className="flex items-center gap-2">
+                  <MapPin size={16} />
+                  Ver todos no mapa
+                </Link>
+              </Button>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal delay={150}>
+            <Suspense fallback={<div className="h-[450px] bg-card border border-border rounded-lg animate-pulse" />}>
+              <PropertyMap properties={properties.filter(p => p.featured)} className="h-[450px]" />
+            </Suspense>
+            <div className="mt-4 md:hidden">
+              <Button asChild variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10">
+                <Link to="/imoveis" className="flex items-center justify-center gap-2">
+                  <MapPin size={16} />
+                  Ver todos no mapa
+                </Link>
+              </Button>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

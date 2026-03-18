@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import FinancingSimulator from "@/components/FinancingSimulator";
 import MarketIndicators from "@/components/MarketIndicators";
 import ScrollReveal from "@/components/ScrollReveal";
+import BackButton from "@/components/BackButton";
 
 export default function Simulator() {
   return (
@@ -11,10 +12,13 @@ export default function Simulator() {
 
       <section className="pt-32 pb-12 px-6">
         <div className="container mx-auto">
+          <div className="mb-6">
+            <BackButton />
+          </div>
           <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
             Ferramentas
           </span>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
             Simulador & Indicadores
           </h1>
         </div>

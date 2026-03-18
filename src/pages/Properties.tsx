@@ -5,11 +5,12 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
+import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
-const types = ["Todos", "Apartamento", "Casa", "Cobertura"] as const;
+const types = ["Todos", "Apartamento", "Casa", "Cobertura", "Terreno"] as const;
 const locations = ["Todos", "São Paulo", "Bertioga", "Barueri"] as const;
 
 export default function Properties() {
@@ -31,12 +32,16 @@ export default function Properties() {
 
       {/* Header */}
       <section className="pt-32 pb-12 px-6">
-        <div className="container mx-auto flex items-end justify-between">
+        <div className="container mx-auto">
+          <div className="mb-6">
+            <BackButton />
+          </div>
+          <div className="flex items-end justify-between">
           <div>
             <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
               Portfólio
             </span>
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
               Nossos imóveis
             </h1>
           </div>
@@ -52,6 +57,7 @@ export default function Properties() {
             <MapPin size={14} />
             {showMap ? "Ver lista" : "Ver no mapa"}
           </button>
+        </div>
         </div>
       </section>
 

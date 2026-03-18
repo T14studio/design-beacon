@@ -108,6 +108,8 @@ export const properties: Property[] = [
     ],
     images: [property4, property6, property3],
     featured: true,
+    lat: -23.5870,
+    lng: -46.6718,
   },
   {
     id: "cobertura-itaim",

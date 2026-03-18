@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import Marquee from "@/components/Marquee";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
+import MarketIndicators from "@/components/MarketIndicators";
 import { Button } from "@/components/ui/button";
 
 const heroImages = [hero1, hero2, hero3];

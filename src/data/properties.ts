@@ -52,6 +52,8 @@ export const properties: Property[] = [
     ],
     images: [property1, property3, property4],
     featured: true,
+    lat: -23.5615,
+    lng: -46.6589,
   },
   {
     id: "casa-riviera",

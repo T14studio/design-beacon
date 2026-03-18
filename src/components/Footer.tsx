@@ -8,13 +8,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="md:col-span-1">
-            <img
-              src="/logo-etica-axis.png"
-              alt="Ética Áxis"
-              className="h-8 mb-4"
-            />
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <span className="text-gold-gradient text-xl font-bold tracking-wider uppercase block mb-4">
+              Ética Áxis
+            </span>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Excelência em imóveis de alto padrão. Sua nova história começa aqui.
+            </p>
+            <p className="text-xs font-mono tracking-widest uppercase text-primary">
+              CRECI 12345-J
             </p>
           </div>
 
@@ -32,6 +33,11 @@ export default function Footer() {
               <li>
                 <Link to="/imoveis" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Imóveis
+                </Link>
+              </li>
+              <li>
+                <Link to="/simulador" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Simulador
                 </Link>
               </li>
             </ul>
@@ -72,10 +78,10 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Bottom brand watermark */}
+      {/* Bottom */}
       <div className="border-t border-border py-8 overflow-hidden">
         <p className="text-center text-xs text-muted-foreground/40 tracking-widest uppercase">
-          © {new Date().getFullYear()} Ética Áxis Imobiliária — Todos os direitos reservados
+          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 12345-J — Todos os direitos reservados
         </p>
       </div>
     </footer>

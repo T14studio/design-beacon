@@ -77,7 +77,7 @@ export default function Index() {
               <span className="text-foreground drop-shadow-sm">de Alto Padrão</span>
             </h1>
 
-            <p className="text-muted-foreground text-lg md:text-xl max-w-xl mb-10 font-light">
+            <p className="text-foreground/70 text-lg md:text-xl max-w-xl mb-10 font-light">
               Encontre residências exclusivas com a curadoria da Ética Áxis Imobiliária.
             </p>
 

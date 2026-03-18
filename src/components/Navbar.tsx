@@ -36,9 +36,8 @@ export default function Navbar() {
 
         {/* Logo center — text-only lettering */}
         <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <span className="text-gold-gradient text-xl md:text-2xl font-bold tracking-wider uppercase">
-            Ética Áxis
-          </span>
+          <Logo size="sm" className="hidden md:block" />
+          <Logo size="sm" className="md:hidden" />
         </Link>
 
         {/* Right nav */}

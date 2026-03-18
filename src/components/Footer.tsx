@@ -9,9 +9,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="md:col-span-1">
-            <span className="text-gold-gradient text-xl font-bold tracking-wider uppercase block mb-4">
-              Ética Áxis
-            </span>
+            <div className="mb-4">
+              <Logo size="md" showSubtitle />
+            </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Excelência em imóveis de alto padrão. Sua nova história começa aqui.
             </p>

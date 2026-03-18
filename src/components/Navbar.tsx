@@ -36,8 +36,8 @@ export default function Navbar() {
 
         {/* Logo center — text-only lettering */}
         <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <Logo size="sm" className="hidden md:block" />
-          <Logo size="sm" className="md:hidden" />
+          <Logo size="sm" showSubtitle className="hidden md:block" />
+          <Logo size="sm" showSubtitle className="md:hidden" />
         </Link>
 
         {/* Right nav */}

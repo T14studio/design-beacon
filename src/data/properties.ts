@@ -8,7 +8,7 @@ import property6 from "@/assets/property-6.jpg";
 export type Property = {
   id: string;
   title: string;
-  type: "Apartamento" | "Casa" | "Cobertura";
+  type: "Apartamento" | "Casa" | "Cobertura" | "Terreno";
   mode: "Venda" | "Locação";
   price: number;
   location: string;

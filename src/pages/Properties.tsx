@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
-const types = ["Todos", "Apartamento", "Casa", "Cobertura"] as const;
+const types = ["Todos", "Apartamento", "Casa", "Cobertura", "Terreno"] as const;
 const locations = ["Todos", "São Paulo", "Bertioga", "Barueri"] as const;
 
 export default function Properties() {

@@ -4,57 +4,18 @@ interface LogoProps {
   size?: "sm" | "md" | "lg";
 }
 
-const sizes = {
-  sm: { width: 160, height: 30, fontSize: 22, subSize: 9, gap: 18 },
-  md: { width: 220, height: 42, fontSize: 30, subSize: 12, gap: 24 },
-  lg: { width: 320, height: 62, fontSize: 44, subSize: 16, gap: 34 },
+const sizeClasses = {
+  sm: "h-10",
+  md: "h-14",
+  lg: "h-20",
 };
 
-export default function Logo({ className = "", showSubtitle = false, size = "md" }: LogoProps) {
-  const s = sizes[size];
-
+export default function Logo({ className = "", size = "md" }: LogoProps) {
   return (
-    <svg
-      viewBox={`0 0 ${s.width} ${showSubtitle ? s.height + s.gap : s.height}`}
-      width={s.width}
-      height={showSubtitle ? s.height + s.gap : s.height}
-      className={className}
-      aria-label="Ética Áxis Imobiliária"
-      role="img"
-    >
-      <defs>
-        <linearGradient id="logo-gold" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="hsl(37, 50%, 72%)" />
-          <stop offset="50%" stopColor="hsl(37, 42%, 60%)" />
-          <stop offset="100%" stopColor="hsl(37, 35%, 45%)" />
-        </linearGradient>
-      </defs>
-      <text
-        x="50%"
-        y={s.height * 0.78}
-        textAnchor="middle"
-        fill="url(#logo-gold)"
-        fontFamily="'Georgia', 'Times New Roman', serif"
-        fontSize={s.fontSize}
-        fontWeight="400"
-        letterSpacing="0.12em"
-      >
-        ÉTICA ÁXIS
-      </text>
-      {showSubtitle && (
-        <text
-          x="50%"
-          y={s.height + s.subSize + 6}
-          textAnchor="middle"
-          fill="url(#logo-gold)"
-          fontFamily="'Georgia', 'Times New Roman', serif"
-          fontSize={s.subSize}
-          fontWeight="400"
-          letterSpacing="0.35em"
-        >
-          IMOBILIÁRIA
-        </text>
-      )}
-    </svg>
+    <img
+      src="/logo-etica-axis.svg"
+      alt="Ética Áxis Imobiliária"
+      className={`${sizeClasses[size]} w-auto object-contain ${className}`}
+    />
   );
 }

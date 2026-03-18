@@ -164,6 +164,8 @@ export const properties: Property[] = [
     ],
     images: [property5, property2, property4],
     featured: false,
+    lat: -23.4958,
+    lng: -46.8502,
   },
   {
     id: "apt-moema",

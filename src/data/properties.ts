@@ -21,6 +21,8 @@ export type Property = {
   features: string[];
   images: string[];
   featured: boolean;
+  lat: number;
+  lng: number;
 };
 
 export const properties: Property[] = [

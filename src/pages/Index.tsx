@@ -74,7 +74,7 @@ export default function Index() {
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6 max-w-3xl">
               <span className="text-gold-gradient">Imóveis</span>{" "}
-              <span className="text-foreground">de Alto Padrão</span>
+              <span className="text-foreground drop-shadow-sm">de Alto Padrão</span>
             </h1>
 
             <p className="text-muted-foreground text-lg md:text-xl max-w-xl mb-10 font-light">

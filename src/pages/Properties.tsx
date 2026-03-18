@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
+import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));

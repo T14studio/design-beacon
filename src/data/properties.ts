@@ -137,6 +137,8 @@ export const properties: Property[] = [
     ],
     images: [property3, property1, property6],
     featured: false,
+    lat: -23.5830,
+    lng: -46.6790,
   },
   {
     id: "casa-alphaville",

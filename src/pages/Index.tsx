@@ -116,6 +116,15 @@ export default function Index() {
       {/* ── Marquee ── */}
       <Marquee />
 
+      {/* ── Market Indicators ── */}
+      <section className="py-8 px-6">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <MarketIndicators />
+          </ScrollReveal>
+        </div>
+      </section>
+
       {/* ── Featured ── */}
       <section className="py-24 px-6">
         <div className="container mx-auto">

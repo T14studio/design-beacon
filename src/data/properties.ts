@@ -191,6 +191,8 @@ export const properties: Property[] = [
     ],
     images: [property6, property4, property1],
     featured: false,
+    lat: -23.6010,
+    lng: -46.6650,
   },
 ];
 

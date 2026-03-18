@@ -81,6 +81,8 @@ export const properties: Property[] = [
     ],
     images: [property2, property5, property1],
     featured: true,
+    lat: -23.7754,
+    lng: -46.1305,
   },
   {
     id: "apt-vila-nova",

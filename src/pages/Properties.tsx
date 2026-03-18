@@ -58,6 +58,7 @@ export default function Properties() {
             {showMap ? "Ver lista" : "Ver no mapa"}
           </button>
         </div>
+        </div>
       </section>
 
       {/* Filters */}

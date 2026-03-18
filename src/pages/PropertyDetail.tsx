@@ -41,12 +41,12 @@ export default function PropertyDetail() {
       {/* Back link */}
       <div className="pt-24 pb-4 px-6">
         <div className="container mx-auto">
-          <Link
-            to="/imoveis"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+          <button
+            onClick={() => window.history.back()}
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
           >
-            <ArrowLeft size={16} /> Voltar
-          </Link>
+            <ArrowLeft size={16} /> ← Voltar
+          </button>
         </div>
       </div>
 

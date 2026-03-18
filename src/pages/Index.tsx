@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowRight, MapPin } from "lucide-react";
 import hero1 from "@/assets/hero-1.jpg";
 import hero2 from "@/assets/hero-2.jpg";
 import hero3 from "@/assets/hero-3.jpg";
@@ -12,6 +12,8 @@ import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
 import MarketIndicators from "@/components/MarketIndicators";
 import { Button } from "@/components/ui/button";
+
+const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
 const heroImages = [hero1, hero2, hero3];
 const kenburnsClasses = ["animate-kenburns-1", "animate-kenburns-2", "animate-kenburns-3"];

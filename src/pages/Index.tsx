@@ -159,6 +159,46 @@ export default function Index() {
         </div>
       </section>
 
+      {/* ── Map Preview ── */}
+      <section className="py-24 px-6">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <div className="flex items-end justify-between mb-12">
+              <div>
+                <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
+                  Localização
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+                  Explore no mapa
+                </h2>
+                <p className="text-foreground/60 mt-3 max-w-lg">
+                  Veja a localização exata de cada imóvel e descubra as melhores regiões.
+                </p>
+              </div>
+              <Button asChild variant="outline" className="hidden md:flex border-primary/40 text-primary hover:bg-primary/10">
+                <Link to="/imoveis" className="flex items-center gap-2">
+                  <MapPin size={16} />
+                  Ver todos no mapa
+                </Link>
+              </Button>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal delay={150}>
+            <Suspense fallback={<div className="h-[450px] bg-card border border-border rounded-lg animate-pulse" />}>
+              <PropertyMap properties={properties.filter(p => p.featured)} className="h-[450px]" />
+            </Suspense>
+            <div className="mt-4 md:hidden">
+              <Button asChild variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10">
+                <Link to="/imoveis" className="flex items-center justify-center gap-2">
+                  <MapPin size={16} />
+                  Ver todos no mapa
+                </Link>
+              </Button>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
       {/* ── About Teaser ── */}
       <section className="py-24 px-6 bg-card border-y border-border">
         <div className="container mx-auto">

@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import Marquee from "@/components/Marquee";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
+import MarketIndicators from "@/components/MarketIndicators";
 import { Button } from "@/components/ui/button";
 
 const heroImages = [hero1, hero2, hero3];
@@ -114,6 +115,15 @@ export default function Index() {
 
       {/* ── Marquee ── */}
       <Marquee />
+
+      {/* ── Market Indicators ── */}
+      <section className="py-8 px-6">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <MarketIndicators />
+          </ScrollReveal>
+        </div>
+      </section>
 
       {/* ── Featured ── */}
       <section className="py-24 px-6">

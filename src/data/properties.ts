@@ -21,6 +21,8 @@ export type Property = {
   features: string[];
   images: string[];
   featured: boolean;
+  lat: number;
+  lng: number;
 };
 
 export const properties: Property[] = [
@@ -50,6 +52,8 @@ export const properties: Property[] = [
     ],
     images: [property1, property3, property4],
     featured: true,
+    lat: -23.5615,
+    lng: -46.6589,
   },
   {
     id: "casa-riviera",
@@ -77,6 +81,8 @@ export const properties: Property[] = [
     ],
     images: [property2, property5, property1],
     featured: true,
+    lat: -23.7754,
+    lng: -46.1305,
   },
   {
     id: "apt-vila-nova",
@@ -102,6 +108,8 @@ export const properties: Property[] = [
     ],
     images: [property4, property6, property3],
     featured: true,
+    lat: -23.5870,
+    lng: -46.6718,
   },
   {
     id: "cobertura-itaim",
@@ -129,6 +137,8 @@ export const properties: Property[] = [
     ],
     images: [property3, property1, property6],
     featured: false,
+    lat: -23.5830,
+    lng: -46.6790,
   },
   {
     id: "casa-alphaville",
@@ -154,6 +164,8 @@ export const properties: Property[] = [
     ],
     images: [property5, property2, property4],
     featured: false,
+    lat: -23.4958,
+    lng: -46.8502,
   },
   {
     id: "apt-moema",
@@ -179,6 +191,8 @@ export const properties: Property[] = [
     ],
     images: [property6, property4, property1],
     featured: false,
+    lat: -23.6010,
+    lng: -46.6650,
   },
 ];
 

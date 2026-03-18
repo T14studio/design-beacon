@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 const navLinks = [
   { label: "Início", path: "/" },
   { label: "Imóveis", path: "/imoveis" },
+  { label: "Simulador", path: "/simulador" },
 ];
 
 export default function Navbar() {
@@ -32,17 +33,18 @@ export default function Navbar() {
           ))}
         </ul>
 
-        {/* Logo center */}
+        {/* Logo center — text-only lettering */}
         <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <img
-            src="/logo-etica-axis.png"
-            alt="Ética Áxis Imobiliária"
-            className="h-10 w-auto"
-          />
+          <span className="text-gold-gradient text-xl md:text-2xl font-bold tracking-wider uppercase">
+            Ética Áxis
+          </span>
         </Link>
 
         {/* Right nav */}
         <div className="hidden md:flex items-center gap-8">
+          <span className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground">
+            CRECI 12345-J
+          </span>
           <a
             href="https://wa.me/5511999999999"
             target="_blank"
@@ -85,6 +87,9 @@ export default function Navbar() {
           >
             Contato
           </a>
+          <span className="text-xs font-mono tracking-widest uppercase text-muted-foreground mt-4">
+            CRECI 12345-J
+          </span>
         </div>
       )}
     </header>

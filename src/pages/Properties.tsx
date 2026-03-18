@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { properties, type Property } from "@/data/properties";
+import { MapPin } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
 import { cn } from "@/lib/utils";
+
+const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
 const types = ["Todos", "Apartamento", "Casa", "Cobertura"] as const;
 const locations = ["Todos", "São Paulo", "Bertioga", "Barueri"] as const;
@@ -12,6 +15,7 @@ const locations = ["Todos", "São Paulo", "Bertioga", "Barueri"] as const;
 export default function Properties() {
   const [typeFilter, setTypeFilter] = useState<string>("Todos");
   const [locationFilter, setLocationFilter] = useState<string>("Todos");
+  const [showMap, setShowMap] = useState(false);
 
   const filtered = useMemo(() => {
     return properties.filter((p) => {
@@ -27,13 +31,27 @@ export default function Properties() {
 
       {/* Header */}
       <section className="pt-32 pb-12 px-6">
-        <div className="container mx-auto">
-          <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
-            Portfólio
-          </span>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-            Nossos imóveis
-          </h1>
+        <div className="container mx-auto flex items-end justify-between">
+          <div>
+            <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
+              Portfólio
+            </span>
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+              Nossos imóveis
+            </h1>
+          </div>
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className={cn(
+              "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-all duration-300",
+              showMap
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            )}
+          >
+            <MapPin size={14} />
+            {showMap ? "Ver lista" : "Ver no mapa"}
+          </button>
         </div>
       </section>
 
@@ -81,10 +99,14 @@ export default function Properties() {
         </div>
       </section>
 
-      {/* Grid */}
+      {/* Map or Grid */}
       <section className="px-6 pb-24">
         <div className="container mx-auto">
-          {filtered.length === 0 ? (
+          {showMap ? (
+            <Suspense fallback={<div className="h-[500px] bg-card border border-border rounded-lg animate-pulse" />}>
+              <PropertyMap properties={filtered} className="h-[500px]" />
+            </Suspense>
+          ) : filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-16">
               Nenhum imóvel encontrado com os filtros selecionados.
             </p>

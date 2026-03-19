@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, lazy, Suspense } from "react";
 import { properties, type Property } from "@/data/properties";
 import { MapPin } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -17,6 +17,7 @@ export default function Properties() {
   const [typeFilter, setTypeFilter] = useState<string>("Todos");
   const [locationFilter, setLocationFilter] = useState<string>("Todos");
   const [showMap, setShowMap] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     return properties.filter((p) => {
@@ -25,6 +26,10 @@ export default function Properties() {
       return true;
     });
   }, [typeFilter, locationFilter]);
+
+  const scrollToMap = () => {
+    mapRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,27 +42,35 @@ export default function Properties() {
             <BackButton />
           </div>
           <div className="flex items-end justify-between">
-          <div>
-            <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
-              Portfólio
-            </span>
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-              Nossos imóveis
-            </h1>
+            <div>
+              <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
+                Portfólio
+              </span>
+              <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
+                Nossos imóveis
+              </h1>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={scrollToMap}
+                className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-300"
+              >
+                <MapPin size={14} />
+                Ver no mapa
+              </button>
+              <button
+                onClick={() => setShowMap(!showMap)}
+                className={cn(
+                  "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-all duration-300",
+                  showMap
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                )}
+              >
+                {showMap ? "Ver lista" : "Ver como mapa"}
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowMap(!showMap)}
-            className={cn(
-              "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-all duration-300",
-              showMap
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            )}
-          >
-            <MapPin size={14} />
-            {showMap ? "Ver lista" : "Ver no mapa"}
-          </button>
-        </div>
         </div>
       </section>
 
@@ -105,8 +118,8 @@ export default function Properties() {
         </div>
       </section>
 
-      {/* Map or Grid */}
-      <section className="px-6 pb-24">
+      {/* Grid or inline map */}
+      <section className="px-6 pb-12">
         <div className="container mx-auto">
           {showMap ? (
             <Suspense fallback={<div className="h-[500px] bg-card border border-border rounded-lg animate-pulse" />}>
@@ -125,6 +138,30 @@ export default function Properties() {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Always-visible map at bottom */}
+      <section ref={mapRef} className="px-6 pb-24">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <div className="mb-8">
+              <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
+                Localização
+              </span>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                Mapa dos imóveis
+              </h2>
+              <p className="text-muted-foreground mt-2 max-w-lg">
+                Explore a localização exata de cada propriedade no mapa interativo.
+              </p>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal delay={100}>
+            <Suspense fallback={<div className="h-[500px] bg-card border border-border rounded-lg animate-pulse" />}>
+              <PropertyMap properties={filtered} className="h-[500px]" />
+            </Suspense>
+          </ScrollReveal>
         </div>
       </section>
 

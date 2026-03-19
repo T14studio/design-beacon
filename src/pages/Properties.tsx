@@ -1,12 +1,18 @@
 import { useState, useMemo, useRef, lazy, Suspense } from "react";
-import { properties, type Property } from "@/data/properties";
+import { properties } from "@/data/properties";
 import { MapPin } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PropertyCard from "@/components/PropertyCard";
 import ScrollReveal from "@/components/ScrollReveal";
 import BackButton from "@/components/BackButton";
-import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
@@ -16,7 +22,6 @@ const locations = ["Todos", "São Paulo", "Bertioga", "Barueri"] as const;
 export default function Properties() {
   const [typeFilter, setTypeFilter] = useState<string>("Todos");
   const [locationFilter, setLocationFilter] = useState<string>("Todos");
-  const [showMap, setShowMap] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
@@ -41,7 +46,7 @@ export default function Properties() {
           <div className="mb-6">
             <BackButton />
           </div>
-          <div className="flex items-end justify-between">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <span className="font-mono text-xs tracking-widest uppercase text-primary mb-2 block">
                 Portfólio
@@ -50,82 +55,53 @@ export default function Properties() {
                 Nossos imóveis
               </h1>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={scrollToMap}
-                className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-300"
-              >
-                <MapPin size={14} />
-                Ver no mapa
-              </button>
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className={cn(
-                  "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-all duration-300",
-                  showMap
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-              >
-                {showMap ? "Ver lista" : "Ver como mapa"}
-              </button>
-            </div>
+            <button
+              onClick={scrollToMap}
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-300 w-fit"
+            >
+              <MapPin size={14} />
+              Ver no mapa
+            </button>
           </div>
         </div>
       </section>
 
       {/* Filters */}
       <section className="px-6 pb-12">
-        <div className="container mx-auto flex flex-wrap gap-8">
-          <div>
+        <div className="container mx-auto flex flex-wrap gap-4">
+          <div className="w-48">
             <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2">Tipo</p>
-            <div className="flex flex-wrap gap-2">
-              {types.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTypeFilter(t)}
-                  className={cn(
-                    "text-xs font-medium tracking-wide px-4 py-2 rounded-full border transition-all duration-300",
-                    typeFilter === t
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="rounded-full border-border bg-background text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {types.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div>
+          <div className="w-48">
             <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2">Localização</p>
-            <div className="flex flex-wrap gap-2">
-              {locations.map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLocationFilter(l)}
-                  className={cn(
-                    "text-xs font-medium tracking-wide px-4 py-2 rounded-full border transition-all duration-300",
-                    locationFilter === l
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="rounded-full border-border bg-background text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((l) => (
+                  <SelectItem key={l} value={l}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </section>
 
-      {/* Grid or inline map */}
+      {/* Grid */}
       <section className="px-6 pb-12">
         <div className="container mx-auto">
-          {showMap ? (
-            <Suspense fallback={<div className="h-[500px] bg-card border border-border rounded-lg animate-pulse" />}>
-              <PropertyMap properties={filtered} className="h-[500px]" />
-            </Suspense>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-16">
               Nenhum imóvel encontrado com os filtros selecionados.
             </p>
@@ -141,7 +117,7 @@ export default function Properties() {
         </div>
       </section>
 
-      {/* Always-visible map at bottom */}
+      {/* Map at bottom */}
       <section ref={mapRef} className="px-6 pb-24">
         <div className="container mx-auto">
           <ScrollReveal>

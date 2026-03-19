@@ -1,66 +1,42 @@
 interface LogoProps {
   className?: string;
-  showSubtitle?: boolean;
   size?: "sm" | "md" | "lg";
 }
 
 const sizes = {
-  sm: { width: 180, height: 56 },
-  md: { width: 220, height: 68 },
-  lg: { width: 300, height: 92 },
+  sm: "text-[clamp(22px,2.2vw,32px)]",
+  md: "text-[clamp(28px,2.5vw,42px)]",
+  lg: "text-[clamp(34px,3vw,52px)]",
+};
+
+const subSizes = {
+  sm: "text-[clamp(8px,0.7vw,11px)]",
+  md: "text-[clamp(10px,0.9vw,14px)]",
+  lg: "text-[clamp(12px,1.1vw,16px)]",
 };
 
 export default function Logo({ className = "", size = "md" }: LogoProps) {
-  const { width, height } = sizes[size];
-
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 220 68"
-      width={width}
-      height={height}
-      className={`${className}`}
+    <div
+      className={`flex flex-col items-center justify-center leading-none ${className}`}
       aria-label="Ética Áxis Imobiliária"
       role="img"
     >
-      {/* ÉTICA ÁXIS */}
-      <text
-        x="110"
-        y="26"
-        textAnchor="middle"
-        fontFamily="'Georgia', 'Times New Roman', serif"
-        fontSize="24"
-        fontWeight="700"
-        letterSpacing="6"
-        fill="currentColor"
+      <div
+        className={`flex items-center gap-[0.25em] font-['Playfair_Display',Georgia,serif] font-semibold ${sizes[size]} tracking-[0.08em] text-[#c9a24a] uppercase`}
       >
-        ÉTICA ÁXIS
-      </text>
-
-      {/* Decorative line */}
-      <line x1="40" y1="35" x2="180" y2="35" stroke="currentColor" strokeWidth="0.5" opacity="0.4" />
-
-      {/* Diamond symbol */}
-      <polygon
-        points="110,31 114,35 110,39 106,35"
-        fill="currentColor"
-        opacity="0.7"
-      />
-
-      {/* IMOBILIÁRIA */}
-      <text
-        x="110"
-        y="50"
-        textAnchor="middle"
-        fontFamily="'Georgia', 'Times New Roman', serif"
-        fontSize="10"
-        fontWeight="400"
-        letterSpacing="5"
-        fill="currentColor"
-        opacity="0.75"
+        <span>ÉTICA</span>
+        <span className="relative w-[1em] h-[1em] flex items-center justify-center">
+          <span className="absolute inset-0 rounded-full border-2 border-[#c9a24a]" />
+          <span className="absolute w-[2px] h-full bg-[#c9a24a]" />
+        </span>
+        <span>ÁXIS</span>
+      </div>
+      <div
+        className={`mt-[0.4em] font-['Playfair_Display',Georgia,serif] ${subSizes[size]} tracking-[0.5em] text-[#c9a24a] uppercase`}
       >
         IMOBILIÁRIA
-      </text>
-    </svg>
+      </div>
+    </div>
   );
 }

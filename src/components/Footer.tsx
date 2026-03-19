@@ -10,7 +10,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="mb-4">
-              <Logo size="md" showSubtitle />
+              <Logo size="md" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Excelência em imóveis de alto padrão. Sua nova história começa aqui.

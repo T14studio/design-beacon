@@ -16,7 +16,7 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass">
-      <nav className="container mx-auto flex items-center justify-between h-20 px-6">
+      <nav className="container mx-auto flex items-center justify-between h-24 px-6">
         {/* Left nav */}
         <ul className="hidden md:flex items-center gap-8">
           {navLinks.map((l) => (

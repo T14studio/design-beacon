@@ -5,18 +5,18 @@ import Logo from "@/components/Logo";
 export default function Footer() {
   return (
     <footer className="bg-card border-t border-border">
-      <div className="container mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="container mx-auto px-6 py-12 md:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand */}
-          <div className="md:col-span-1">
+          <div className="sm:col-span-2 lg:col-span-1">
             <div className="mb-4">
-              <Logo size="md" />
+              <Logo size="sm" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              Excelência em imóveis de alto padrão. Sua nova história começa aqui.
+              O melhor imóvel com quem entende disso. Quando trabalhamos coletivamente em prol de um objetivo, conquistamos o impossível.
             </p>
             <p className="text-xs font-mono tracking-widest uppercase text-primary">
-              CRECI 12345-J
+              CRECI 7903 J
             </p>
           </div>
 
@@ -51,16 +51,16 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone size={14} className="text-primary" />
-                (11) 99999-9999
+                <Phone size={14} className="text-primary flex-shrink-0" />
+                +55 67 99624-1515
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail size={14} className="text-primary" />
-                contato@eticaaxis.com.br
+                <Mail size={14} className="text-primary flex-shrink-0" />
+                contato@eticaimoveisbr.com.br
               </li>
               <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin size={14} className="text-primary mt-0.5" />
-                Av. Faria Lima, 3000<br />São Paulo — SP
+                <MapPin size={14} className="text-primary mt-0.5 flex-shrink-0" />
+                <span>Rua Alagoas, 396 — SL 1403<br />Campo Grande — MS</span>
               </li>
             </ul>
           </div>
@@ -80,9 +80,9 @@ export default function Footer() {
       </div>
 
       {/* Bottom */}
-      <div className="border-t border-border py-8 overflow-hidden">
-        <p className="text-center text-xs text-muted-foreground/40 tracking-widest uppercase">
-          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 12345-J — Todos os direitos reservados
+      <div className="border-t border-border py-6 md:py-8 overflow-hidden">
+        <p className="text-center text-[10px] md:text-xs text-muted-foreground/40 tracking-widest uppercase px-4">
+          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 7903 J — Todos os direitos reservados
         </p>
       </div>
     </footer>

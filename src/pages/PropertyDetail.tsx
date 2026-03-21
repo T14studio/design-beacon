@@ -7,6 +7,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import BackButton from "@/components/BackButton";
 import { useState } from "react";
 
 export default function PropertyDetail() {
@@ -39,37 +40,30 @@ export default function PropertyDetail() {
       <Navbar />
 
       {/* Back link */}
-      <div className="pt-24 pb-4 px-6">
+      <div className="pt-32 pb-4 px-6">
         <div className="container mx-auto">
-          <button
-            onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ArrowLeft size={16} /> ← Voltar
-          </button>
+          <BackButton />
         </div>
       </div>
-
-      {/* Gallery */}
       <section className="px-6 pb-8">
         <div className="container mx-auto">
-          <div className="relative h-[50vh] md:h-[60vh] rounded-lg overflow-hidden mb-4">
+          <div className="relative h-[50vh] md:h-[60vh] rounded-2xl overflow-hidden mb-4 shadow-xl">
             <img
               src={property.images[selectedImg]}
               alt={property.title}
-              className="w-full h-full object-cover transition-all duration-500"
+              className="w-full h-full object-cover transition-all duration-1000"
             />
-            <span className="absolute top-4 left-4 bg-primary text-primary-foreground text-xs font-mono tracking-widest uppercase px-3 py-1.5 rounded-sm">
+            <span className="absolute top-6 left-6 bg-primary text-primary-foreground text-[10px] font-bold tracking-[0.2em] uppercase px-4 py-2 rounded-full shadow-lg">
               {property.mode}
             </span>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {property.images.map((img, i) => (
               <button
                 key={i}
                 onClick={() => setSelectedImg(i)}
-                className={`h-20 w-28 rounded-md overflow-hidden border-2 transition-all ${
-                  i === selectedImg ? "border-primary" : "border-transparent opacity-60 hover:opacity-100"
+                className={`h-20 w-28 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-300 ${
+                  i === selectedImg ? "border-primary scale-95 shadow-inner" : "border-transparent opacity-60 hover:opacity-100 hover:scale-105"
                 }`}
               >
                 <img src={img} alt="" className="w-full h-full object-cover" />
@@ -80,84 +74,99 @@ export default function PropertyDetail() {
       </section>
 
       {/* Info */}
-      <section className="px-6 pb-16">
+      <section className="px-6 pb-24">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             {/* Main */}
             <div className="lg:col-span-2">
               <ScrollReveal>
-                <span className="font-mono text-xs tracking-widest uppercase text-primary block mb-2">
+                <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary block mb-3 font-bold">
                   {property.type} • {property.neighborhood}, {property.location}
                 </span>
-                <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-4">
+                <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 leading-tight">
                   {property.title}
                 </h1>
-                <p className="text-gold-gradient text-3xl font-bold mb-8">
+                <p className="text-gold-gradient text-4xl font-bold mb-10 tracking-tight">
                   {formatPrice(property.price, property.mode)}
                 </p>
 
                 {/* Specs */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                  {specs.map((s) => (
-                    <div key={s.label} className="bg-card border border-border rounded-lg p-4 text-center">
-                      <s.icon size={20} className="mx-auto mb-2 text-primary" />
-                      <p className="text-lg font-bold text-foreground">{s.value}</p>
-                      <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+                  {specs.filter(s => typeof s.value === 'string' || s.value > 0).map((s) => (
+                    <div key={s.label} className="bg-card/30 border border-border rounded-2xl p-6 text-center hover:border-primary/20 transition-all group">
+                      <s.icon size={24} className="mx-auto mb-3 text-primary group-hover:scale-110 transition-transform" />
+                      <p className="text-xl font-bold text-foreground">{s.value}</p>
+                      <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground/60 mt-1">
                         {s.label}
                       </p>
                     </div>
                   ))}
                 </div>
 
-                {/* Description */}
-                <h3 className="text-lg font-semibold mb-3">Sobre o imóvel</h3>
-                <p className="text-muted-foreground leading-relaxed mb-8">
-                  {property.description}
-                </p>
+                {property.type === "Terreno" && property.potential && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 mb-12 shadow-inner">
+                    <h3 className="text-sm font-mono tracking-widest uppercase text-primary mb-4 font-bold flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      Potencial Construtivo
+                    </h3>
+                    <p className="text-foreground/90 italic leading-relaxed text-lg">{property.potential}</p>
+                  </div>
+                )}
 
-                {/* Features */}
-                <h3 className="text-lg font-semibold mb-3">Características</h3>
-                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {property.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check size={14} className="text-primary" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                {/* Description */}
+                <div className="prose prose-invert max-w-none">
+                  <h3 className="text-xl font-bold mb-4 text-foreground">Sobre o imóvel</h3>
+                  <p className="text-muted-foreground leading-relaxed text-lg mb-10">
+                    {property.description}
+                  </p>
+
+                  {/* Features */}
+                  <h3 className="text-xl font-bold mb-5 text-foreground">Características</h3>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {property.features.map((f) => (
+                      <li key={f} className="flex items-center gap-3 text-base text-muted-foreground/80 group">
+                        <div className="p-1 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                          <Check size={14} className="text-primary" />
+                        </div>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </ScrollReveal>
             </div>
 
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <ScrollReveal delay={200}>
-                <div className="bg-card border border-border rounded-lg p-6 sticky top-24">
-                  <h3 className="text-lg font-semibold mb-1">Interessado?</h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Preencha o formulário ou entre em contato diretamente.
+                <div className="bg-card/40 backdrop-blur-md border border-border rounded-2xl p-8 sticky top-32 shadow-2xl">
+                  <h3 className="text-2xl font-bold mb-3">Interesse imediato?</h3>
+                  <p className="text-sm text-muted-foreground/70 mb-8 leading-relaxed">
+                    Fale agora com nosso especialista e receba um atendimento exclusivo e personalizado.
                   </p>
-                  <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                    <Input placeholder="Seu nome" className="bg-background" />
-                    <Input type="email" placeholder="E-mail" className="bg-background" />
-                    <Input type="tel" placeholder="Telefone" className="bg-background" />
-                    <Textarea placeholder="Mensagem" rows={3} className="bg-background" />
-                    <Button className="w-full bg-gold-gradient text-primary-foreground font-semibold tracking-wide hover:opacity-90 transition-opacity">
-                      Enviar mensagem
+                  <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+                    <Input placeholder="Seu Nome" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
+                    <Input type="email" placeholder="E-mail" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
+                    <Input type="tel" placeholder="WhatsApp / Telefone" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
+                    <Textarea placeholder="Como podemos te ajudar?" rows={3} className="bg-background rounded-xl focus:ring-primary/20" />
+                    <Button className="w-full bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase h-14 hover:shadow-lg transition-all rounded-full btn-shine shadow-gold-gradient/20">
+                      Solicitar Contato
                     </Button>
                   </form>
 
-                  <div className="mt-4">
+                  <div className="mt-6 pt-6 border-t border-border/50">
                     <Button
                       asChild
                       variant="outline"
-                      className="w-full border-green-600/50 text-green-500 hover:bg-green-600/10 hover:text-green-400"
+                      className="w-full h-14 rounded-full border-green-600/30 text-green-500 hover:bg-green-600/10 hover:text-green-400 font-bold tracking-wide transition-all"
                     >
                       <a
-                        href={`https://wa.me/5511999999999?text=Olá! Tenho interesse no imóvel: ${property.title}`}
+                        href={`https://wa.me/5567991193513?text=Olá! Tenho interesse no imóvel: ${property.title}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        className="flex items-center gap-3"
                       >
-                        <MessageCircle size={16} /> WhatsApp
+                        <MessageCircle size={20} /> WhatsApp Direto
                       </a>
                     </Button>
                   </div>

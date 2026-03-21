@@ -142,3 +142,55 @@
 .stagger-children > *:nth-child(4) { animation-delay: 0.4s; }
 .stagger-children > *:nth-child(5) { animation-delay: 0.5s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.6s; }
+/* Shine effect */
+@keyframes shine {
+  0% { transform: translateX(-150%) skewX(-25deg); }
+  25% { transform: translateX(250%) skewX(-25deg); }
+  100% { transform: translateX(250%) skewX(-25deg); }
+}
+
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -10%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  animation: shine 5s infinite;
+}
+
+/* Custom Select Item Styling */
+[data-radix-select-viewport] [role="option"][data-highlighted],
+[data-radix-select-viewport] [role="option"]:hover {
+  background-color: hsl(var(--primary) / 0.15) !important;
+  color: hsl(var(--primary)) !important;
+  outline: none !important;
+}
+
+[data-radix-select-viewport] [role="option"][data-state="checked"] {
+  background-color: hsl(var(--primary) / 0.2) !important;
+  color: hsl(var(--primary)) !important;
+  font-weight: 600;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

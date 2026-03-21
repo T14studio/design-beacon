@@ -8,7 +8,7 @@ import property6 from "@/assets/property-6.jpg";
 export type Property = {
   id: string;
   title: string;
-  type: "Apartamento" | "Casa" | "Cobertura" | "Terreno";
+  type: "Apartamento" | "Casa" | "Cobertura" | "Terreno" | "Comercial" | "Rural";
   mode: "Venda" | "Locação";
   price: number;
   location: string;
@@ -23,6 +23,7 @@ export type Property = {
   featured: boolean;
   lat: number;
   lng: number;
+  potential?: string; // Potencial construtivo (específico para Terrenos)
 };
 
 export const properties: Property[] = [
@@ -195,8 +196,64 @@ export const properties: Property[] = [
     lng: -46.6650,
   },
   {
+    id: "terreno-fazenda-boa-vista",
+    title: "Lote Exclusivo na Fazenda Boa Vista",
+    type: "Terreno",
+    mode: "Venda",
+    price: 4500000,
+    location: "Barueri",
+    neighborhood: "Porto Feliz",
+    bedrooms: 0,
+    bathrooms: 0,
+    area: 3500,
+    parking: 0,
+    description:
+      "Oportunidade única de construir sua casa de campo em um dos condomínios mais luxuosos do Brasil. Terreno com topografia privilegiada e vista definitiva para o campo de golfe.",
+    features: [
+      "Vista para o golfe",
+      "Topografia plana",
+      "Segurança máxima",
+      "Clube hípico",
+      "Heliponto",
+      "Infraestrutura subterrânea",
+    ],
+    images: [property5, property3],
+    featured: true,
+    lat: -23.2144,
+    lng: -47.5230,
+    potential: "Ideal para residência unifamiliar de alto padrão (até 2 pavimentos)",
+  },
+  {
+    id: "terreno-tambore",
+    title: "Terreno Residencial em Tamboré",
+    type: "Terreno",
+    mode: "Venda",
+    price: 2800000,
+    location: "Barueri",
+    neighborhood: "Tamboré",
+    bedrooms: 0,
+    bathrooms: 0,
+    area: 1100,
+    parking: 0,
+    description:
+      "Excelente lote em aclive suave, proporcionando vista panorâmica. Localizado em rua sem saída, garantindo total privacidade e tranquilidade para sua família.",
+    features: [
+      "Rua sem saída",
+      "Vista panorâmica",
+      "Aclive suave",
+      "Condomínio consolidado",
+      "Lazer completo",
+      "Segurança 24h",
+    ],
+    images: [property2, property6],
+    featured: false,
+    lat: -23.4750,
+    lng: -46.8650,
+    potential: "Zona residencial de baixa densidade (ZRB)",
+  },
+  {
     id: "terreno-alphaville",
-    title: "Terreno Premium em Alphaville",
+    title: "Lote Premium em Alphaville 1",
     type: "Terreno",
     mode: "Venda",
     price: 3200000,
@@ -216,10 +273,11 @@ export const properties: Property[] = [
       "Segurança 24h",
       "Portaria blindada",
     ],
-    images: [property5, property2],
+    images: [property1, property4],
     featured: false,
     lat: -23.4900,
     lng: -46.8450,
+    potential: "Aprovação para projeto de até 800m² de área construída",
   },
 ];
 

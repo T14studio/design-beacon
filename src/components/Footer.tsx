@@ -5,18 +5,21 @@ import Logo from "@/components/Logo";
 export default function Footer() {
   return (
     <footer className="bg-card border-t border-border">
-      <div className="container mx-auto px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
+      <div className="container mx-auto px-6 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand */}
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="md:col-span-1">
             <div className="mb-4">
-              <Logo size="sm" />
+              <Logo size="md" />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-              O melhor imóvel com quem entende disso. Quando trabalhamos coletivamente em prol de um objetivo, conquistamos o impossível.
+              Excelência em imóveis de alto padrão. Sua nova história começa aqui.
             </p>
             <p className="text-xs font-mono tracking-widest uppercase text-primary">
-              CRECI 7903 J
+              CRECI 12345-J
+            </p>
+            <p className="text-[10px] font-mono tracking-[0.2em] uppercase text-primary/50 mt-1">
+              Desde 2015
             </p>
           </div>
 
@@ -28,17 +31,17 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Início
+                  Home
                 </Link>
               </li>
               <li>
                 <Link to="/imoveis" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Imóveis
+                  Desejo Alugar
                 </Link>
               </li>
               <li>
                 <Link to="/simulador" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Simulador
+                  Desejo Comprar
                 </Link>
               </li>
             </ul>
@@ -51,16 +54,16 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone size={14} className="text-primary flex-shrink-0" />
-                +55 67 99624-1515
+                <Phone size={14} className="text-primary" />
+                (67) 99119-3513
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail size={14} className="text-primary flex-shrink-0" />
-                contato@eticaimoveisbr.com.br
+                <Mail size={14} className="text-primary" />
+                comercial@eticaimoveisbr.com.br
               </li>
               <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin size={14} className="text-primary mt-0.5 flex-shrink-0" />
-                <span>Rua Alagoas, 396 — SL 1403<br />Campo Grande — MS</span>
+                <MapPin size={14} className="text-primary mt-0.5" />
+                Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS
               </li>
             </ul>
           </div>
@@ -71,18 +74,18 @@ export default function Footer() {
               Horário
             </h4>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Seg — Sex: 9h às 18h<br />
-              Sáb: 10h às 14h<br />
-              Dom: Sob agendamento
+              Seg — Sex: 08h às 11:30<br />
+              13h às 17:30<br />
+              Sáb e Dom: Fechado
             </p>
           </div>
         </div>
       </div>
 
       {/* Bottom */}
-      <div className="border-t border-border py-6 md:py-8 overflow-hidden">
-        <p className="text-center text-[10px] md:text-xs text-muted-foreground/40 tracking-widest uppercase px-4">
-          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 7903 J — Todos os direitos reservados
+      <div className="border-t border-border py-8 overflow-hidden">
+        <p className="text-center text-xs text-muted-foreground/40 tracking-widest uppercase">
+          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 12345-J — Desde 2015 — Todos os direitos reservados
         </p>
       </div>
     </footer>

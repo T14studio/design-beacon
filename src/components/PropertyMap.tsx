@@ -28,7 +28,7 @@ export default function PropertyMap({ properties, className = "" }: Props) {
       <MapContainer
         center={center}
         zoom={10}
-        style={{ height: "100%", width: "100%", minHeight: "400px" }}
+        style={{ height: "100%", width: "100%", minHeight: "100%" }}
         scrollWheelZoom={false}
       >
         <TileLayer

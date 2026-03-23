@@ -5,10 +5,10 @@ import Logo from "@/components/Logo";
 export default function Footer() {
   return (
     <footer className="bg-card border-t border-border">
-      <div className="container mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-12 md:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10 md:gap-12">
           {/* Brand */}
-          <div className="md:col-span-1">
+          <div className="sm:col-span-2 md:col-span-1">
             <div className="mb-4">
               <Logo size="md" />
             </div>
@@ -54,16 +54,16 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone size={14} className="text-primary" />
+                <Phone size={14} className="text-primary flex-shrink-0" />
                 (67) 99119-3513
               </li>
-              <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail size={14} className="text-primary" />
-                comercial@eticaimoveisbr.com.br
+              <li className="flex items-center gap-2 text-sm text-muted-foreground break-all">
+                <Mail size={14} className="text-primary flex-shrink-0" />
+                <span className="break-all">comercial@eticaimoveisbr.com.br</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin size={14} className="text-primary mt-0.5" />
-                Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS
+                <MapPin size={14} className="text-primary mt-0.5 flex-shrink-0" />
+                <span>Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS</span>
               </li>
             </ul>
           </div>
@@ -83,8 +83,8 @@ export default function Footer() {
       </div>
 
       {/* Bottom */}
-      <div className="border-t border-border py-8 overflow-hidden">
-        <p className="text-center text-xs text-muted-foreground/40 tracking-widest uppercase">
+      <div className="border-t border-border py-6 sm:py-8 px-4 sm:px-6 overflow-hidden">
+        <p className="text-center text-[9px] sm:text-xs text-muted-foreground/40 tracking-wider sm:tracking-widest uppercase leading-relaxed">
           © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 12345-J — Desde 2015 — Todos os direitos reservados
         </p>
       </div>

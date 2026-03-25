@@ -15,12 +15,6 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground leading-relaxed mb-3">
               Excelência em imóveis de alto padrão. Sua nova história começa aqui.
             </p>
-            <p className="text-xs font-mono tracking-widest uppercase text-primary">
-              CRECI 12345-J
-            </p>
-            <p className="text-[10px] font-mono tracking-[0.2em] uppercase text-primary/50 mt-1">
-              Desde 2015
-            </p>
           </div>
 
           {/* Links */}

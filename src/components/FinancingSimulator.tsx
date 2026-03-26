@@ -29,7 +29,7 @@ export default function FinancingSimulator() {
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 md:p-8">
+    <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-[2rem] p-5 sm:p-8 md:p-10 shadow-2xl">
       <div className="flex items-center gap-3 mb-6">
         <Calculator size={20} className="text-primary" />
         <h3 className="text-lg font-semibold">Simulador de Financiamento</h3>
@@ -112,22 +112,22 @@ export default function FinancingSimulator() {
       </div>
 
       {result && (
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-background border border-border rounded-lg p-4 text-center">
-            <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1">Parcela mensal</p>
-            <p className="text-lg font-bold text-gold-gradient">{fmt(result.monthlyPayment)}</p>
+        <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
+            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Parcela mensal</p>
+            <p className="text-sm sm:text-base md:text-lg font-bold text-gold-gradient">{fmt(result.monthlyPayment)}</p>
           </div>
-          <div className="bg-background border border-border rounded-lg p-4 text-center">
-            <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1">Valor financiado</p>
-            <p className="text-lg font-bold text-foreground">{fmt(result.financed)}</p>
+          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
+            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Valor financiado</p>
+            <p className="text-sm sm:text-base md:text-lg font-bold text-foreground">{fmt(result.financed)}</p>
           </div>
-          <div className="bg-background border border-border rounded-lg p-4 text-center">
-            <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1">Total pago</p>
-            <p className="text-lg font-bold text-foreground">{fmt(result.totalPaid)}</p>
+          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
+            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Total pago</p>
+            <p className="text-sm sm:text-base md:text-lg font-bold text-foreground">{fmt(result.totalPaid)}</p>
           </div>
-          <div className="bg-background border border-border rounded-lg p-4 text-center">
-            <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1">Total juros</p>
-            <p className="text-lg font-bold text-destructive">{fmt(result.totalInterest)}</p>
+          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
+            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Total juros</p>
+            <p className="text-sm sm:text-base md:text-lg font-bold text-destructive">{fmt(result.totalInterest)}</p>
           </div>
         </div>
       )}

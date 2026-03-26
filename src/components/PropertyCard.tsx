@@ -63,9 +63,9 @@ export default function PropertyCard({ property, variant = "grid" }: Props) {
   return (
     <Link
       to={`/imoveis/${property.id}`}
-      className="group block border border-border rounded-xl sm:rounded-2xl overflow-hidden hover:border-primary/40 transition-all duration-500 shadow-sm hover:shadow-xl bg-card/20"
+      className="group flex flex-col border border-border rounded-xl sm:rounded-2xl overflow-hidden hover:border-primary/40 transition-all duration-500 shadow-sm hover:shadow-xl bg-card/20 h-full"
     >
-      <div className="relative h-48 sm:h-60 overflow-hidden">
+      <div className="relative h-56 sm:h-64 overflow-hidden shrink-0">
         <img
           src={property.images[0]}
           alt={property.title}
@@ -75,7 +75,7 @@ export default function PropertyCard({ property, variant = "grid" }: Props) {
           {property.mode}
         </span>
       </div>
-      <div className="p-4 sm:p-6">
+      <div className="p-4 sm:p-6 flex flex-col flex-grow">
         <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-primary font-bold">
           {property.type} • {property.neighborhood}
         </span>
@@ -93,9 +93,11 @@ export default function PropertyCard({ property, variant = "grid" }: Props) {
             {property.potential}
           </p>
         )}
-        <p className="text-gold-gradient text-lg sm:text-xl font-bold tracking-tight">
-          {formatPrice(property.price, property.mode)}
-        </p>
+        <div className="mt-auto pt-2">
+          <p className="text-gold-gradient text-lg sm:text-xl font-bold tracking-tight">
+            {formatPrice(property.price, property.mode)}
+          </p>
+        </div>
       </div>
     </Link>
   );

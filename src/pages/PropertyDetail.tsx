@@ -83,17 +83,17 @@ export default function PropertyDetail() {
                 <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary block mb-3 font-bold">
                   {property.type} • {property.neighborhood}, {property.location}
                 </span>
-                <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 leading-tight">
+                <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 leading-[1.1] break-words">
                   {property.title}
                 </h1>
-                <p className="text-gold-gradient text-4xl font-bold mb-10 tracking-tight">
+                <p className="text-gold-gradient text-3xl sm:text-4xl font-bold mb-10 tracking-tight">
                   {formatPrice(property.price, property.mode)}
                 </p>
 
                 {/* Specs */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
                   {specs.filter(s => typeof s.value === 'string' || s.value > 0).map((s) => (
-                    <div key={s.label} className="bg-card/30 border border-border rounded-2xl p-6 text-center hover:border-primary/20 transition-all group">
+                    <div key={s.label} className="bg-card/30 border border-border rounded-2xl p-4 sm:p-6 text-center hover:border-primary/20 transition-all group">
                       <s.icon size={24} className="mx-auto mb-3 text-primary group-hover:scale-110 transition-transform" />
                       <p className="text-xl font-bold text-foreground">{s.value}</p>
                       <p className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground/60 mt-1">
@@ -139,7 +139,7 @@ export default function PropertyDetail() {
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <ScrollReveal delay={200}>
-                <div className="bg-card/40 backdrop-blur-md border border-border rounded-2xl p-8 sticky top-32 shadow-2xl">
+                <div className="bg-card/40 backdrop-blur-md border border-border rounded-2xl p-6 sm:p-8 sticky top-32 shadow-2xl">
                   <h3 className="text-2xl font-bold mb-3">Interesse imediato?</h3>
                   <p className="text-sm text-muted-foreground/70 mb-8 leading-relaxed">
                     Fale agora com nosso especialista e receba um atendimento exclusivo e personalizado.

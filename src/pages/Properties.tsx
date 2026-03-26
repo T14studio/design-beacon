@@ -104,13 +104,13 @@ export default function Properties() {
               <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary mb-3 block font-bold">
                 Exclusividade · Ética Áxis
               </span>
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.1] break-words">
                 Nossos <span className="text-gold-gradient">imóveis</span>
               </h1>
             </div>
             <button
               onClick={scrollToMap}
-              className="flex items-center gap-3 text-[10px] font-bold tracking-widest uppercase px-8 py-4 rounded-full border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-500 w-fit bg-card/20 hover:bg-card/40 backdrop-blur-sm"
+              className="flex items-center justify-center gap-3 text-[10px] font-bold tracking-widest uppercase h-12 sm:h-14 px-8 rounded-full border border-border/50 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-500 w-full sm:w-fit bg-card/20 hover:bg-card/40 backdrop-blur-sm"
             >
               <MapPin size={14} className="text-primary" />
               Explorar Localização
@@ -122,7 +122,7 @@ export default function Properties() {
       {/* Enhanced Filters */}
       <section className="px-6 pb-16">
         <div className="container mx-auto">
-          <div className="bg-card/50 backdrop-blur-xl border border-border/40 rounded-[2.5rem] p-8 md:p-10 shadow-2xl relative overflow-hidden">
+          <div className="bg-card/50 backdrop-blur-xl border border-border/40 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
             <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
             
             <div className="flex items-center gap-3 mb-8">

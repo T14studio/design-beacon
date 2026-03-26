@@ -78,8 +78,10 @@ export default function Footer() {
 
       {/* Bottom */}
       <div className="border-t border-border py-6 sm:py-8 px-4 sm:px-6 overflow-hidden">
-        <p className="text-center text-[9px] sm:text-xs text-muted-foreground/40 tracking-wider sm:tracking-widest uppercase leading-relaxed">
-          © {new Date().getFullYear()} Ética Áxis Imobiliária — CRECI 12345-J — Desde 2015 — Todos os direitos reservados
+        <p className="text-center text-[9px] sm:text-xs text-muted-foreground/40 tracking-wider sm:tracking-widest uppercase leading-relaxed max-w-sm sm:max-w-none mx-auto">
+          © {new Date().getFullYear()} Ética Áxis Imobiliária<br className="sm:hidden" />
+          CRECI 12345-J — Desde 2015<br className="sm:hidden" />
+          Todos os direitos reservados
         </p>
       </div>
     </footer>

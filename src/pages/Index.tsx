@@ -181,7 +181,7 @@ export default function Index() {
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold tracking-tight leading-[1.0] mb-5 sm:mb-8 max-w-4xl">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-bold tracking-tight leading-[1.1] sm:leading-[1.0] mb-5 sm:mb-8 max-w-4xl break-words">
               <span className="text-gold-gradient">Residências</span>{" "}
               <span className="text-foreground drop-shadow-2xl">que Inspiram</span>
             </h1>
@@ -190,9 +190,9 @@ export default function Index() {
               Descubra imóveis exclusivos com a curadoria especializada da Ética Áxis. Transformamos o conceito de morar em uma experiência extraordinária.
             </p>
 
-            <div className="flex flex-wrap gap-3 sm:gap-4">
-              <Button asChild size="lg" className="bg-gold-gradient text-primary-foreground font-bold tracking-[0.1em] uppercase hover:opacity-90 transition-all px-6 sm:px-10 py-5 sm:py-8 shadow-2xl btn-shine rounded-full group text-xs sm:text-sm">
-                <Link to="/imoveis" className="flex items-center gap-2 sm:gap-3">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+              <Button asChild className="bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase hover:opacity-90 transition-all h-12 sm:h-14 md:h-16 px-6 sm:px-10 shadow-2xl btn-shine rounded-full group text-[10px] sm:text-sm w-full sm:w-auto flex items-center justify-center">
+                <Link to="/imoveis" className="flex items-center justify-center gap-2 sm:gap-3 w-full">
                   Explorar portfólio <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
@@ -246,8 +246,8 @@ export default function Index() {
           </div>
 
           <div className="mt-10 sm:mt-16 text-center md:hidden">
-             <Button asChild variant="outline" className="border-primary/30 text-primary rounded-full px-8 h-12 font-bold tracking-widest uppercase text-[10px]">
-                <Link to="/imoveis">Ver todos os imóveis</Link>
+             <Button asChild variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 rounded-full w-full h-12 sm:h-14 font-bold tracking-widest uppercase text-[10px]">
+                <Link to="/imoveis" className="flex items-center justify-center w-full">Ver todos os imóveis</Link>
              </Button>
           </div>
         </div>
@@ -265,8 +265,8 @@ export default function Index() {
               <p className="text-muted-foreground leading-relaxed mb-8 sm:mb-10 text-base sm:text-lg max-w-lg font-light">
                 Navegue pelas localizações mais nobres e encontre o imóvel ideal no bairro que combina com suas conquistas.
               </p>
-              <Button asChild variant="outline" className="border-primary/40 text-primary hover:bg-primary/10 h-12 sm:h-14 md:h-16 px-6 sm:px-8 md:px-10 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] group">
-                <Link to="/imoveis" className="flex items-center gap-2">
+              <Button asChild variant="outline" className="border-primary/40 w-full sm:w-auto text-primary hover:bg-primary/10 h-12 sm:h-14 md:h-16 px-6 sm:px-8 md:px-10 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] group flex justify-center items-center">
+                <Link to="/imoveis" className="flex items-center justify-center gap-2 w-full">
                   <MapPin size={18} className="group-hover:scale-110 transition-transform" />
                   Explorar no mapa
                 </Link>
@@ -317,11 +317,11 @@ export default function Index() {
                   Utilize nossa ferramenta especializada de simulação financeira para descobrir as melhores condições para o seu investimento imobiliário.
                 </p>
                 <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-5">
-                  <Button asChild size="lg" className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto">
-                    <Link to="/simulador">Simular Agora</Link>
+                  <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto flex items-center justify-center">
+                    <Link to="/simulador" className="w-full flex justify-center items-center">Simular Agora</Link>
                   </Button>
-                  <Button asChild variant="outline" size="lg" className="border-primary/30 text-primary hover:bg-primary/10 px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] w-full sm:w-auto">
-                    <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre simulação de financiamento." target="_blank" rel="noopener noreferrer">
+                  <Button asChild variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] w-full sm:w-auto flex justify-center items-center">
+                    <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre simulação de financiamento." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                       Falar com especialista
                     </a>
                   </Button>
@@ -467,8 +467,8 @@ export default function Index() {
                     </li>
                   ))}
                 </ul>
-                <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-8 sm:px-12 h-12 sm:h-14 md:h-16 shadow-2xl rounded-full btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto">
-                   <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar sobre o anúncio e avaliação do meu imóvel." target="_blank" rel="noopener noreferrer">
+                <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-8 sm:px-12 h-12 sm:h-14 md:h-16 shadow-2xl rounded-full btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto flex items-center justify-center">
+                   <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar sobre o anúncio e avaliação do meu imóvel." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                       Quero anunciar meu imóvel
                    </a>
                 </Button>
@@ -639,13 +639,13 @@ export default function Index() {
               Nossa curadoria off-market possui propriedades exclusivas que não estão listadas publicamente em canais comuns.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8">
-              <Button asChild size="lg" className="bg-gold-gradient text-primary-foreground font-bold px-8 sm:px-10 md:px-12 py-5 sm:py-7 md:py-9 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto shadow-2xl rounded-full btn-shine shadow-primary/30">
-                <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre os imóveis." target="_blank" rel="noopener noreferrer">
+              <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-10 md:px-12 h-12 sm:h-14 md:h-16 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto shadow-2xl rounded-full btn-shine shadow-primary/30 flex items-center justify-center">
+                <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre os imóveis." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                   Falar com especialista no WhatsApp
                 </a>
               </Button>
-              <Button asChild variant="outline" size="lg" className="border-border/50 px-8 sm:px-10 md:px-12 py-5 sm:py-7 md:py-9 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto rounded-full font-bold hover:bg-white hover:text-black transition-all h-auto">
-                <Link to="/imoveis">Ver todos os imóveis</Link>
+              <Button asChild variant="outline" className="border-border/50 px-6 sm:px-10 md:px-12 h-12 sm:h-14 md:h-16 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto rounded-full font-bold hover:bg-white hover:text-black transition-all flex items-center justify-center">
+                <Link to="/imoveis" className="w-full flex justify-center items-center text-center">Ver todos os imóveis</Link>
               </Button>
             </div>
           </ScrollReveal>

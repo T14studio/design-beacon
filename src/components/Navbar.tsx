@@ -7,7 +7,7 @@ import Logo from "@/components/Logo";
 const navLinks = [
   { label: "Home", path: "/" },
   { label: "Desejo Alugar", path: "/imoveis?mode=locacao" },
-  { label: "Desejo Comprar", path: "/imoveis?mode=venda" },
+  { label: "Desejo Comprar", path: "/simulador" },
   { label: "Lançamentos", path: "/imoveis?type=lancamento" },
 ];
 
@@ -48,6 +48,9 @@ export default function Navbar() {
 
         {/* Right nav - Desktop */}
         <div className="hidden md:flex items-center justify-end gap-4 lg:gap-6 flex-1">
+          <span className="text-[11px] lg:text-[12px] font-mono tracking-widest font-bold text-muted-foreground/30 uppercase mt-1">
+            CRECI 12345-J
+          </span>
           <a
             href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre os imóveis."
             target="_blank"

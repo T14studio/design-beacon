@@ -1,38 +1,75 @@
 import { useState, useMemo } from "react";
-import { Calculator } from "lucide-react";
+import { Calculator, ArrowDownUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { calculateFinancing, formatCurrency } from "@/lib/financing";
+import type { BankConfig, AmortizationSystem } from "@/data/banks";
 
-export default function FinancingSimulator() {
+interface FinancingSimulatorProps {
+  /** Banco selecionado atualmente (opcional — usa defaults se não fornecido) */
+  bank?: BankConfig;
+}
+
+export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
   const [propertyValue, setPropertyValue] = useState(1000000);
   const [downPayment, setDownPayment] = useState(200000);
-  const [years, setYears] = useState(30);
-  const [rate, setRate] = useState(10.5);
+  const [years, setYears] = useState(bank?.maxYears ?? 30);
+  const [amortization, setAmortization] = useState<AmortizationSystem>("SAC");
+
+  // Taxa vinda do banco selecionado ou default
+  const rate = bank?.annualRate ?? 10.5;
+  const maxYears = bank?.maxYears ?? 35;
+  const minDownPercent = bank?.minDownPaymentPercent ?? 20;
+  const minDown = Math.ceil(propertyValue * minDownPercent / 100);
+  const supportedSystems = bank?.amortizationSystems ?? ["SAC", "PRICE"];
+
+  // Se o banco selecionado não suporta o sistema atual, trocar
+  const effectiveAmortization = supportedSystems.includes(amortization) ? amortization : supportedSystems[0];
+
+  // Garantir que o prazo não exceda o máximo do banco
+  const effectiveYears = Math.min(years, maxYears);
 
   const result = useMemo(() => {
-    const principal = propertyValue - downPayment;
-    if (principal <= 0) return null;
-    const monthlyRate = rate / 100 / 12;
-    const n = years * 12;
-    const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1);
-    const totalPaid = payment * n;
-    return {
-      monthlyPayment: payment,
-      totalPaid,
-      totalInterest: totalPaid - principal,
-      financed: principal,
-    };
-  }, [propertyValue, downPayment, years, rate]);
+    return calculateFinancing({
+      propertyValue,
+      downPayment: Math.max(downPayment, minDown),
+      years: effectiveYears,
+      annualRate: rate,
+      amortizationSystem: effectiveAmortization,
+    });
+  }, [propertyValue, downPayment, effectiveYears, rate, effectiveAmortization, minDown]);
 
-  const fmt = (v: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+  const fmt = formatCurrency;
 
   return (
     <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-[2rem] p-5 sm:p-8 md:p-10 shadow-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <Calculator size={20} className="text-primary" />
-        <h3 className="text-lg font-semibold">Simulador de Financiamento</h3>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Calculator size={20} className="text-primary" />
+          <h3 className="text-lg font-semibold">Simulador de Financiamento</h3>
+        </div>
+
+        {/* Seletor de sistema de amortização */}
+        {supportedSystems.length > 1 && (
+          <div className="flex items-center gap-2">
+            <ArrowDownUp size={14} className="text-muted-foreground" />
+            <div className="flex bg-background/80 rounded-full p-1 border border-border/50 shadow-inner">
+              {supportedSystems.map((sys) => (
+                <button
+                  key={sys}
+                  onClick={() => setAmortization(sys)}
+                  className={`text-[10px] sm:text-[11px] font-mono font-bold tracking-widest uppercase px-5 sm:px-6 py-2 rounded-full transition-all duration-300 ${
+                    effectiveAmortization === sys
+                      ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md scale-[1.02]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {sys}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -61,11 +98,11 @@ export default function FinancingSimulator() {
 
         <div>
           <label className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2 block">
-            Entrada
+            Entrada {bank ? `(mín. ${minDownPercent}%)` : ""}
           </label>
           <Input
             type="text"
-            value={fmt(downPayment)}
+            value={fmt(Math.max(downPayment, minDown))}
             onChange={(e) => {
               const num = Number(e.target.value.replace(/\D/g, ""));
               if (!isNaN(num)) setDownPayment(num);
@@ -73,9 +110,9 @@ export default function FinancingSimulator() {
             className="bg-background"
           />
           <Slider
-            value={[downPayment]}
+            value={[Math.max(downPayment, minDown)]}
             onValueChange={([v]) => setDownPayment(v)}
-            min={0}
+            min={minDown}
             max={propertyValue * 0.8}
             step={10000}
             className="mt-3"
@@ -84,13 +121,13 @@ export default function FinancingSimulator() {
 
         <div>
           <label className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2 block">
-            Prazo (anos): {years}
+            Prazo (anos): {effectiveYears}
           </label>
           <Slider
-            value={[years]}
+            value={[effectiveYears]}
             onValueChange={([v]) => setYears(v)}
             min={5}
-            max={35}
+            max={maxYears}
             step={1}
             className="mt-3"
           />
@@ -99,36 +136,56 @@ export default function FinancingSimulator() {
         <div>
           <label className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2 block">
             Taxa anual (%): {rate.toFixed(1)}%
+            {bank && (
+              <span className="text-primary/60 ml-2">({bank.shortName})</span>
+            )}
           </label>
-          <Slider
-            value={[rate * 10]}
-            onValueChange={([v]) => setRate(v / 10)}
-            min={50}
-            max={180}
-            step={1}
-            className="mt-3"
-          />
+          <div className="mt-3 bg-background/40 rounded-lg p-3 border border-border/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Taxa definida pelo banco</span>
+              <span className="text-sm font-bold text-foreground">{rate.toFixed(2)}% a.a.</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {result && (
-        <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
-            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Parcela mensal</p>
-            <p className="text-sm sm:text-base md:text-lg font-bold text-gold-gradient">{fmt(result.monthlyPayment)}</p>
+        <div className="mt-8">
+          {/* Resultado principal */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">
+                {effectiveAmortization === "SAC" ? "1ª Parcela" : "Parcela mensal"}
+              </p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-gold-gradient truncate">{fmt(result.monthlyPayment)}</p>
+            </div>
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Valor financiado</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(result.financed)}</p>
+            </div>
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total pago</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(result.totalPaid)}</p>
+            </div>
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total juros</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-destructive truncate">{fmt(result.totalInterest)}</p>
+            </div>
           </div>
-          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
-            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Valor financiado</p>
-            <p className="text-sm sm:text-base md:text-lg font-bold text-foreground">{fmt(result.financed)}</p>
-          </div>
-          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
-            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Total pago</p>
-            <p className="text-sm sm:text-base md:text-lg font-bold text-foreground">{fmt(result.totalPaid)}</p>
-          </div>
-          <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
-            <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight">Total juros</p>
-            <p className="text-sm sm:text-base md:text-lg font-bold text-destructive">{fmt(result.totalInterest)}</p>
-          </div>
+
+          {/* Info adicional SAC */}
+          {effectiveAmortization === "SAC" && (
+            <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="bg-background/40 border border-border/30 rounded-lg px-4 py-2.5 flex-1 flex items-center justify-between">
+                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Última parcela</span>
+                <span className="text-sm font-bold text-green-400">{fmt(result.lastPayment)}</span>
+              </div>
+              <div className="bg-background/40 border border-border/30 rounded-lg px-4 py-2.5 flex-1 flex items-center justify-between">
+                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Nº parcelas</span>
+                <span className="text-sm font-bold text-foreground">{result.totalInstallments}×</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

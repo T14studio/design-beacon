@@ -18,7 +18,6 @@ const subSizes = {
 };
 
 export default function Logo({ className = "", size = "md" }: LogoProps) {
-  // Using em-based sizing so CRECI always scales exactly to 12% of the main logo size
   return (
     <div
       className={cn("flex flex-col items-center justify-center leading-none", className)}
@@ -41,15 +40,13 @@ export default function Logo({ className = "", size = "md" }: LogoProps) {
       <div
         className={cn(
           "flex flex-col items-center mt-[0.4em] text-[#c9a24a] uppercase",
-          sizes[size] /* Using parent size to calculate ems correctly for children */
+          sizes[size]
         )}
       >
         <span className={cn("font-['Playfair_Display',Georgia,serif] tracking-[0.5em] text-[0.35em]")}>
           IMOBILIÁRIA
         </span>
-        <span className="font-mono tracking-[0.3em] font-bold text-[#c9a24a]/80 text-[0.16em] mt-[0.8em]">
-          CRECI 12345-J
-        </span>
+
       </div>
     </div>
   );

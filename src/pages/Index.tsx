@@ -583,41 +583,51 @@ export default function Index() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6 md:gap-8">
             {[
               {
-                tag: "Mercado",
-                title: "Tendências do mercado imobiliário em 2025",
-                excerpt: "Descubra quais regiões e tipos de imóveis estão em alta e como aproveitar as melhores oportunidades de investimento.",
-                date: "Em breve",
+                tag: "Banco Central",
+                title: "Copom corta Taxa Selic para 10,25% ao ano",
+                excerpt: "Com a inflação controlada sob a meta, o Banco Central mantém o ritmo de afrouxamento monetário, o que já começa a baratear o crédito imobiliário nos principais bancos de varejo do país.",
+                date: "24 Março 2026",
+                readTime: "3 min de leitura",
+                image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800&auto=format&fit=crop"
               },
               {
-                tag: "Financiamento",
-                title: "Como escolher o melhor banco para financiar seu imóvel",
-                excerpt: "Comparativo entre Caixa, Santander e Bradesco: taxas, prazos e condições para você tomar a melhor decisão.",
-                date: "Em breve",
+                tag: "Mercado Imobiliário",
+                title: "Caixa Econômica anuncia injeção bilionária no crédito habitacional",
+                excerpt: "Instituição destinará novos recursos para linhas SBPE e altera cota de financiamento de imóveis usados, movimentando o mercado secundário na reta final do primeiro semestre.",
+                date: "10 Março 2026",
+                readTime: "4 min de leitura",
+                image: "https://images.unsplash.com/photo-1550565118-3a14e8d0386f?q=80&w=800&auto=format&fit=crop"
               },
               {
-                tag: "Investimento",
-                title: "Por que investir em imóveis é uma decisão inteligente",
-                excerpt: "Entenda os fundamentos que fazem do mercado imobiliário um porto seguro para seu patrimônio.",
-                date: "Em breve",
+                tag: "Tendências",
+                title: "Vendas de imóveis de alto padrão e luxo crescem 15% neste trimestre",
+                excerpt: "Investidores institucionais e family offices voltam a focar em propriedades de altíssimo padrão como principal ativo de reserva de valor e proteção contra oscilações cambiais.",
+                date: "28 Fevereiro 2026",
+                readTime: "5 min de leitura",
+                image: "https://images.unsplash.com/photo-1600607688969-a5bfcd646154?q=80&w=800&auto=format&fit=crop"
               },
             ].map((post, i) => (
               <ScrollReveal key={i} delay={i * 150}>
-                <div className="bg-card/30 border border-border/50 rounded-2xl sm:rounded-[1.5rem] md:rounded-[2rem] overflow-hidden hover:border-primary/20 hover:shadow-2xl transition-all duration-700 group h-full flex flex-col">
-                  <div className="h-36 sm:h-40 md:h-48 bg-gradient-to-br from-primary/10 via-card/60 to-background flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary)/0.08),transparent)] group-hover:scale-110 transition-transform duration-700" />
-                    <span className="font-mono text-xs tracking-[0.3em] uppercase text-primary/50 font-bold z-10">{post.tag}</span>
+                <div className="bg-card/30 border border-border/50 rounded-2xl sm:rounded-[1.5rem] md:rounded-[2rem] overflow-hidden hover:border-primary/20 hover:shadow-2xl transition-all duration-700 group h-full flex flex-col cursor-pointer">
+                  <div className="h-36 sm:h-40 md:h-48 relative overflow-hidden flex flex-col items-center justify-center text-center">
+                    <img src={post.image} alt={post.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+                    <span className="font-mono text-[10px] tracking-[0.3em] uppercase bg-black/50 text-gold-gradient backdrop-blur-md px-3 py-1 mt-auto mb-4 rounded-full font-bold z-10">{post.tag}</span>
                   </div>
                   <div className="p-5 sm:p-6 md:p-8 flex flex-col flex-1">
-                    <span className="text-[9px] font-mono tracking-widest uppercase text-primary/60 mb-2 sm:mb-3 font-bold">{post.date}</span>
-                    <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2 sm:mb-3 tracking-tight group-hover:text-primary transition-colors leading-tight">
+                    <div className="flex items-center justify-between mb-3 sm:mb-4">
+                      <span className="text-[9px] font-mono tracking-widest uppercase text-primary/60 font-bold">{post.date}</span>
+                      <span className="text-[8px] font-mono uppercase text-muted-foreground/50">{post.readTime}</span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4 tracking-tight group-hover:text-primary transition-colors leading-tight">
                       {post.title}
                     </h3>
                     <p className="text-muted-foreground/80 text-xs sm:text-sm leading-relaxed flex-1">
                       {post.excerpt}
                     </p>
-                    <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border/30">
-                      <span className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-primary/40 group-hover:text-primary/70 transition-colors">
-                        Leia em breve →
+                    <div className="mt-5 sm:mt-6 pt-3 sm:pt-4 border-t border-border/30 flex items-center justify-between">
+                      <span className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-primary group-hover:text-gold-gradient transition-colors">
+                        Ler matéria completa →
                       </span>
                     </div>
                   </div>

@@ -170,7 +170,7 @@ export default function Index() {
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/40 to-background" />
 
         {/* Content */}
-        <div className="relative z-10 h-full flex flex-col justify-end pb-16 sm:pb-20 md:pb-24 px-4 sm:px-6">
+        <div className="relative z-10 h-full flex flex-col justify-end pb-24 sm:pb-28 md:pb-32 px-4 sm:px-6">
           <div className="container mx-auto">
             <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
               <span className="bg-primary/20 border border-primary/40 text-primary text-[9px] sm:text-[10px] font-mono tracking-[0.2em] uppercase px-4 sm:px-6 py-1.5 sm:py-2 rounded-full backdrop-blur-sm">
@@ -202,9 +202,9 @@ export default function Index() {
           {/* Scroll indicator */}
           <button 
             onClick={scrollToNext}
-            className="absolute bottom-4 sm:bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:gap-4 text-muted-foreground/30 hover:text-primary transition-all duration-500 scale-90 hover:scale-100"
+            className="absolute bottom-6 sm:bottom-8 md:bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:gap-4 text-muted-foreground/30 hover:text-primary transition-all duration-500 scale-90 hover:scale-100"
           >
-            <span className="text-[9px] sm:text-[10px] font-mono tracking-[0.3em] sm:tracking-[0.4em] uppercase">Descubra mais</span>
+            <span className="text-[9px] sm:text-[10px] font-mono tracking-[0.3em] sm:tracking-[0.4em] uppercase ml-[0.3em] sm:ml-[0.4em]">Descubra mais</span>
             <div className="w-[1px] h-8 sm:h-12 bg-gradient-to-b from-primary/50 to-transparent animate-pulse" />
           </button>
         </div>

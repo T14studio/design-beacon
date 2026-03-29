@@ -43,22 +43,22 @@ export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
 
   return (
     <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-[2rem] p-5 sm:p-8 md:p-10 shadow-2xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-4 mb-6 sm:mb-8">
+        <div className="flex items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
           <Calculator size={20} className="text-primary" />
-          <h3 className="text-lg font-semibold">Simulador de Financiamento</h3>
+          <h3 className="text-lg font-semibold text-center sm:text-left">Simulador de Financiamento</h3>
         </div>
 
         {/* Seletor de sistema de amortização */}
         {supportedSystems.length > 1 && (
-          <div className="flex items-center gap-2">
-            <ArrowDownUp size={14} className="text-muted-foreground" />
-            <div className="flex bg-background/80 rounded-full p-1 border border-border/50 shadow-inner">
+          <div className="flex items-center justify-center sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+            <ArrowDownUp size={14} className="text-muted-foreground hidden sm:block" />
+            <div className="flex gap-1.5 sm:gap-1 bg-background/80 rounded-full p-1.5 border border-border/50 shadow-inner w-full sm:w-auto">
               {supportedSystems.map((sys) => (
                 <button
                   key={sys}
                   onClick={() => setAmortization(sys)}
-                  className={`text-[10px] sm:text-[11px] font-mono font-bold tracking-widest uppercase px-5 sm:px-6 py-2 rounded-full transition-all duration-300 ${
+                  className={`flex-1 sm:flex-none text-[10px] sm:text-[11px] font-mono font-bold tracking-widest uppercase px-2 sm:px-6 py-3 sm:py-2 rounded-full transition-all duration-300 ${
                     effectiveAmortization === sys
                       ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md scale-[1.02]"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5"

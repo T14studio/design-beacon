@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Bed, Bath, Maximize, Car, Check, MessageCircle } from "lucide-react";
+import { ArrowLeft, Bed, Bath, Maximize, Car, Check, MessageCircle, MapPin } from "lucide-react";
 import { properties, formatPrice } from "@/data/properties";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import BackButton from "@/components/BackButton";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
+
+const PropertyMapSingle = lazy(() => import("@/components/PropertyMapSingle"));
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -83,6 +85,9 @@ export default function PropertyDetail() {
                 <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary block mb-3 font-bold">
                   {property.type} • {property.neighborhood}, {property.location}
                 </span>
+                {property.address && (
+                  <p className="text-xs text-muted-foreground/60 font-mono mb-2">{property.address}</p>
+                )}
                 <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 leading-[1.1] break-words">
                   {property.title}
                 </h1>
@@ -174,6 +179,55 @@ export default function PropertyDetail() {
               </ScrollReveal>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Seção de Localização ── */}
+      <section className="px-6 pb-24">
+        <div className="container mx-auto">
+          <ScrollReveal>
+            <div className="border-t border-border/30 pt-12 mb-10">
+              <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary mb-3 block font-bold">
+                Localização
+              </span>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                  {property.hasLocation ? (
+                    <>
+                      {property.address
+                        ? property.address
+                        : `${property.neighborhood}, ${property.location}`}
+                    </>
+                  ) : (
+                    "Localização sob consulta"
+                  )}
+                </h2>
+                {property.hasLocation && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${property.lat},${property.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase text-primary border border-primary/20 hover:border-primary/40 px-5 py-2.5 rounded-full transition-all duration-300 bg-primary/5 hover:bg-primary/10 whitespace-nowrap"
+                  >
+                    <MapPin size={13} />
+                    Ver no Google Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={100}>
+            <div className="h-[320px] md:h-[420px] rounded-2xl overflow-hidden shadow-2xl">
+              <Suspense
+                fallback={
+                  <div className="h-full w-full bg-card/30 animate-pulse rounded-2xl border border-border/30" />
+                }
+              >
+                <PropertyMapSingle property={property} />
+              </Suspense>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

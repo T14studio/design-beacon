@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, lazy, Suspense, useEffect } from "react";
 import { properties } from "@/data/properties";
 import { MapPin, Search, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -14,41 +14,59 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useSearchParams } from "react-router-dom";
+import { SimulatorContent } from "./Simulator";
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
-const types = ["Todos", "Apartamento", "Casa", "Cobertura", "Terreno", "Comercial", "Rural"] as const;
-const locations = ["Todos", "São Paulo", "Bertioga", "Barueri", "Porto Feliz", "Campo Grande"] as const;
-const neighborhoods = ["Todos", "Jardins", "Riviera de São Lourenço", "Vila Nova Conceição", "Itaim Bibi", "Alphaville", "Moema", "Porto Feliz", "Tamboré", "Jardim dos Estados"] as const;
+const types = ["Todos", "Apartamento", "Casa", "Terreno", "Comercial"] as const;
+const locations = ["Todos", "Campo Grande", "Bonito"] as const;
+const neighborhoods = ["Todos", "Tiradentes", "Coronel Antonino", "Jardim Anache", "Jardim Seminário", "Centro", "Bonito"] as const;
 const priceRanges = [
   { label: "Qualquer valor", value: "all" },
-  { label: "Até R$ 500 mil", value: "0-500000" },
-  { label: "R$ 500 mil — R$ 1 mi", value: "500000-1000000" },
-  { label: "R$ 1 mi — R$ 3 mi", value: "1000000-3000000" },
-  { label: "R$ 3 mi — R$ 5 mi", value: "3000000-5000000" },
-  { label: "R$ 5 mi — R$ 10 mi", value: "5000000-10000000" },
-  { label: "Acima de R$ 10 mi", value: "10000000-999999999" },
+  { label: "Até R$ 300 mil", value: "0-300000" },
+  { label: "R$ 300 mil — R$ 500 mil", value: "300000-500000" },
+  { label: "R$ 500 mil — R$ 800 mil", value: "500000-800000" },
+  { label: "R$ 800 mil — R$ 1,5 mi", value: "800000-1500000" },
+  { label: "R$ 1,5 mi — R$ 3 mi", value: "1500000-3000000" },
+  { label: "Acima de R$ 3 mi", value: "3000000-999999999" },
 ];
-const bedroomOptions = ["Todos", "1+", "2+", "3+", "4+", "5+"] as const;
-const bathroomOptions = ["Todos", "1+", "2+", "3+", "4+"] as const;
-const parkingOptions = ["Todos", "1+", "2+", "3+", "4+"] as const;
+const bedroomOptions = ["Todos", "1+", "2+", "3+", "4+"] as const;
+const bathroomOptions = ["Todos", "1+", "2+", "3+"] as const;
+const parkingOptions = ["Todos", "1+", "2+", "3+"] as const;
+const modes = ["Todos", "Venda", "Locação"] as const;
 
 export default function Properties() {
+  const [searchParams] = useSearchParams();
+  
   const [typeFilter, setTypeFilter] = useState<string>("Todos");
+  const [modeFilter, setModeFilter] = useState<string>(() => {
+    const qMode = searchParams.get("mode");
+    return qMode === "locacao" ? "Locação" : qMode === "venda" ? "Venda" : "Todos";
+  });
   const [locationFilter, setLocationFilter] = useState<string>("Todos");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("Todos");
   const [priceRange, setPriceRange] = useState<string>("all");
   const [bedroomFilter, setBedroomFilter] = useState<string>("Todos");
   const [bathroomFilter, setBathroomFilter] = useState<string>("Todos");
   const [parkingFilter, setParkingFilter] = useState<string>("Todos");
-  const [onlyLaunches, setOnlyLaunches] = useState(false);
+  const [onlyLaunches, setOnlyLaunches] = useState<boolean>(() => searchParams.get("type") === "lancamento");
   const mapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const qMode = searchParams.get("mode");
+    const isLancamento = searchParams.get("type") === "lancamento";
+    
+    if (qMode === "locacao") setModeFilter("Locação");
+    else if (qMode === "venda") setModeFilter("Venda");
+    
+    if (isLancamento) setOnlyLaunches(true);
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     return properties.filter((p) => {
-      const typeMatch = typeFilter === "Todos" || 
-        (typeFilter === "Terreno" && p.type === "Terreno") || 
-        p.type === typeFilter;
+      const typeMatch = typeFilter === "Todos" || p.type === typeFilter;
       if (!typeMatch) return false;
+      if (modeFilter !== "Todos" && p.mode !== modeFilter) return false;
       if (locationFilter !== "Todos" && p.location !== locationFilter) return false;
       if (neighborhoodFilter !== "Todos" && p.neighborhood !== neighborhoodFilter) return false;
       
@@ -70,12 +88,15 @@ export default function Properties() {
         if (p.parking < minParking) return false;
       }
 
+      if (onlyLaunches && !p.featured) return false;
+
       return true;
     });
-  }, [typeFilter, locationFilter, neighborhoodFilter, priceRange, bedroomFilter, bathroomFilter, parkingFilter, onlyLaunches]);
+  }, [typeFilter, modeFilter, locationFilter, neighborhoodFilter, priceRange, bedroomFilter, bathroomFilter, parkingFilter, onlyLaunches]);
 
   const clearFilters = () => {
     setTypeFilter("Todos");
+    setModeFilter("Todos");
     setLocationFilter("Todos");
     setNeighborhoodFilter("Todos");
     setPriceRange("all");
@@ -105,7 +126,15 @@ export default function Properties() {
                 Exclusividade · Ética Áxis
               </span>
               <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.1] break-words">
-                Nossos <span className="text-gold-gradient">imóveis</span>
+                {searchParams.get("mode") === "locacao" ? (
+                  <>Nossos <span className="text-gold-gradient">imóveis para locação</span></>
+                ) : searchParams.get("mode") === "venda" ? (
+                  <>Nossos <span className="text-gold-gradient">imóveis para venda</span></>
+                ) : searchParams.get("type") === "lancamento" ? (
+                  <>Nossos <span className="text-gold-gradient">lançamentos exclusivos</span></>
+                ) : (
+                  <>Nossos <span className="text-gold-gradient">imóveis</span></>
+                )}
               </h1>
             </div>
             <button
@@ -136,6 +165,20 @@ export default function Properties() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+              {/* Modo Venda/Aluguel */}
+              <div>
+                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Venda / Aluguel</p>
+                <Select value={modeFilter} onValueChange={setModeFilter}>
+                  <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
+                    <SelectValue placeholder="Venda / Aluguel" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
+                    {modes.map((m) => (
+                      <SelectItem key={m} value={m} className="rounded-lg focus:bg-primary/10">{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {/* Tipo */}
               <div>
                 <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Tipo de imóvel</p>
@@ -160,20 +203,6 @@ export default function Properties() {
                   <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
                     {locations.map((l) => (
                       <SelectItem key={l} value={l} className="rounded-lg focus:bg-primary/10">{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Bairro */}
-              <div>
-                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Bairro</p>
-                <Select value={neighborhoodFilter} onValueChange={setNeighborhoodFilter}>
-                  <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
-                    <SelectValue placeholder="Bairro" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
-                    {neighborhoods.map((n) => (
-                      <SelectItem key={n} value={n} className="rounded-lg focus:bg-primary/10">{n}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -314,6 +343,29 @@ export default function Properties() {
           </ScrollReveal>
         </div>
       </section>
+
+      {/* Simulator directly on the page, visible when mode is venda */}
+      {searchParams.get("mode") === "venda" && (
+        <section className="px-6 pb-24 mt-12 border-t border-border/10 pt-20 relative">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+          <div className="container mx-auto">
+             <ScrollReveal>
+               <div className="mb-12 text-center max-w-2xl mx-auto">
+                 <span className="font-mono text-[10px] tracking-[0.3em] uppercase text-primary mb-3 block font-bold">
+                    Planeje a sua compra
+                 </span>
+                 <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
+                    Simulação de <span className="text-gold-gradient">financiamento</span>
+                 </h2>
+                 <p className="text-muted-foreground/80 md:text-lg">
+                    Descubra as melhores taxas do mercado e simule as parcelas do seu novo imóvel com os principais bancos.
+                 </p>
+               </div>
+             </ScrollReveal>
+             <SimulatorContent />
+          </div>
+        </section>
+      )}
 
       <Footer />
     </div>

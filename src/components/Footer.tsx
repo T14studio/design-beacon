@@ -56,8 +56,13 @@ export default function Footer() {
                 <span className="break-all">comercial@eticaimoveisbr.com.br</span>
               </li>
               <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin size={14} className="text-primary mt-0.5 flex-shrink-0" />
-                <span>Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS</span>
+                <MapPin size={14} className="text-primary mt-1 flex-shrink-0" />
+                <div className="flex flex-col gap-2">
+                  <span>Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS</span>
+                  <span className="text-sm font-bold text-muted-foreground/60 uppercase tracking-widest">
+                    CRECI 12345-J
+                  </span>
+                </div>
               </li>
             </ul>
           </div>
@@ -78,7 +83,7 @@ export default function Footer() {
 
       {/* Bottom */}
       <div className="border-t border-border py-6 sm:py-8 px-4 sm:px-6 overflow-hidden">
-        <p className="text-center text-[9px] sm:text-xs text-muted-foreground/40 tracking-wider sm:tracking-widest uppercase leading-relaxed max-w-sm sm:max-w-none mx-auto">
+        <p className="text-center text-[9px] sm:text-xs text-muted-foreground/60 tracking-wider sm:tracking-widest uppercase leading-relaxed max-w-sm sm:max-w-none mx-auto">
           © {new Date().getFullYear()} Ética Áxis Imobiliária<br className="sm:hidden" />
           CRECI 12345-J — Desde 2015<br className="sm:hidden" />
           Todos os direitos reservados

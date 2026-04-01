@@ -35,7 +35,7 @@ export default function PropertyMap({ properties, className = "" }: Props) {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
-        {properties.map((p) => (
+        {properties.filter((p) => p.hasLocation).map((p) => (
           <Marker key={p.id} position={[p.lat, p.lng]} icon={goldIcon}>
             <Popup>
               <div className="text-xs min-w-[180px]">

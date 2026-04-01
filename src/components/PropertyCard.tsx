@@ -32,6 +32,9 @@ export default function PropertyCard({ property, variant = "grid" }: Props) {
           <span className="font-mono text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.3em] uppercase text-primary mb-2 sm:mb-3 font-semibold">
             {property.type} • {property.neighborhood}
           </span>
+          {property.address && (
+            <p className="text-[9px] text-muted-foreground/50 font-mono mb-1">{property.address}</p>
+          )}
           <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-3 sm:mb-4 group-hover:text-primary transition-colors duration-300 leading-tight">
             {property.title}
           </h3>
@@ -79,6 +82,9 @@ export default function PropertyCard({ property, variant = "grid" }: Props) {
         <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-primary font-bold">
           {property.type} • {property.neighborhood}
         </span>
+        {property.address && (
+          <p className="text-[9px] text-muted-foreground/40 font-mono mt-0.5">{property.address}</p>
+        )}
         <h3 className="text-base sm:text-lg font-bold text-foreground mt-1.5 sm:mt-2 mb-2 sm:mb-3 group-hover:text-primary transition-colors line-clamp-1">
           {property.title}
         </h3>

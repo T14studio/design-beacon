@@ -29,13 +29,18 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/imoveis" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Link to="/imoveis?mode=locacao" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Desejo Alugar
                 </Link>
               </li>
               <li>
-                <Link to="/simulador" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Link to="/imoveis?mode=venda" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Desejo Comprar
+                </Link>
+              </li>
+              <li>
+                <Link to="/simulador" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Simulador de Financiamento
                 </Link>
               </li>
             </ul>
@@ -47,10 +52,7 @@ export default function Footer() {
               Contato
             </h4>
             <ul className="space-y-3">
-              <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone size={14} className="text-primary flex-shrink-0" />
-                (67) 99119-3513
-              </li>
+
               <li className="flex items-center gap-2 text-sm text-muted-foreground break-all">
                 <Mail size={14} className="text-primary flex-shrink-0" />
                 <span className="break-all">comercial@eticaimoveisbr.com.br</span>

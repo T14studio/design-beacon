@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { toast } from "sonner";
 import { ArrowLeft, Bed, Bath, Maximize, Car, Check, MessageCircle, MapPin } from "lucide-react";
 import { properties, formatPrice } from "@/data/properties";
 import Navbar from "@/components/Navbar";
@@ -8,14 +9,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import BackButton from "@/components/BackButton";
+import { Calculator } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
 
 const PropertyMapSingle = lazy(() => import("@/components/PropertyMapSingle"));
+
+const WHATSAPP_NUMBER = "5567991193513";
 
 export default function PropertyDetail() {
   const { id } = useParams();
   const property = properties.find((p) => p.id === id);
   const [selectedImg, setSelectedImg] = useState(0);
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", message: "" });
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = encodeURIComponent(
+      `Olá! Tenho interesse no imóvel: ${property?.title}. Meu nome é ${contactForm.name}.${contactForm.message ? " Mensagem: " + contactForm.message : ""}`
+    );
+    window.open(`mailto:comercial@eticaimoveisbr.com.br?subject=Interesse no imóvel: ${property?.title}&body=${text}`, "_blank", "noopener,noreferrer");
+  };
 
   if (!property) {
     return (
@@ -149,12 +162,36 @@ export default function PropertyDetail() {
                   <p className="text-sm text-muted-foreground/70 mb-8 leading-relaxed">
                     Fale agora com nosso especialista e receba um atendimento exclusivo e personalizado.
                   </p>
-                  <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-                    <Input placeholder="Seu Nome" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
-                    <Input type="email" placeholder="E-mail" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
-                    <Input type="tel" placeholder="WhatsApp / Telefone" className="bg-background h-12 rounded-xl focus:ring-primary/20" />
-                    <Textarea placeholder="Como podemos te ajudar?" rows={3} className="bg-background rounded-xl focus:ring-primary/20" />
-                    <Button className="w-full bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase h-14 hover:shadow-lg transition-all rounded-full btn-shine shadow-gold-gradient/20">
+                  <form className="space-y-5" onSubmit={handleContactSubmit}>
+                    <Input
+                      placeholder="Seu Nome"
+                      value={contactForm.name}
+                      onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))}
+                      required
+                      className="bg-background h-12 rounded-xl focus:ring-primary/20"
+                    />
+                    <Input
+                      type="email"
+                      placeholder="E-mail"
+                      value={contactForm.email}
+                      onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))}
+                      className="bg-background h-12 rounded-xl focus:ring-primary/20"
+                    />
+                    <Input
+                      type="tel"
+                      placeholder="WhatsApp / Telefone"
+                      value={contactForm.phone}
+                      onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))}
+                      className="bg-background h-12 rounded-xl focus:ring-primary/20"
+                    />
+                    <Textarea
+                      placeholder="Como podemos te ajudar?"
+                      rows={3}
+                      value={contactForm.message}
+                      onChange={e => setContactForm(p => ({ ...p, message: e.target.value }))}
+                      className="bg-background rounded-xl focus:ring-primary/20"
+                    />
+                    <Button type="submit" className="w-full bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase h-14 hover:shadow-lg transition-all rounded-full btn-shine shadow-gold-gradient/20">
                       Solicitar Contato
                     </Button>
                   </form>
@@ -162,17 +199,12 @@ export default function PropertyDetail() {
                   <div className="mt-6 pt-6 border-t border-border/50">
                     <Button
                       asChild
-                      variant="outline"
-                      className="w-full h-14 rounded-full border-green-600/30 text-green-500 hover:bg-green-600/10 hover:text-green-400 font-bold tracking-wide transition-all"
+                      className="w-full bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase h-14 hover:shadow-lg transition-all rounded-full btn-shine shadow-gold-gradient/20"
                     >
-                      <a
-                        href={`https://wa.me/5567991193513?text=Olá! Tenho interesse no imóvel: ${property.title}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3"
-                      >
-                        <MessageCircle size={20} /> WhatsApp Direto
-                      </a>
+                      <Link to="/simulador" state={{ property }}>
+                        <Calculator size={18} className="mr-2" />
+                        Simular este imóvel
+                      </Link>
                     </Button>
                   </div>
                 </div>

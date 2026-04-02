@@ -2,19 +2,24 @@ import { useState, useMemo } from "react";
 import { Calculator, ArrowDownUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 import { calculateFinancing, formatCurrency } from "@/lib/financing";
 import type { BankConfig, AmortizationSystem } from "@/data/banks";
+import type { Property } from "@/data/properties";
 
 interface FinancingSimulatorProps {
   /** Banco selecionado atualmente (opcional — usa defaults se não fornecido) */
   bank?: BankConfig;
+  /** Propriedade vinculada à simulação (se houver) */
+  initialProperty?: Property;
 }
 
-export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
-  const [propertyValue, setPropertyValue] = useState(1000000);
-  const [downPayment, setDownPayment] = useState(200000);
+export default function FinancingSimulator({ bank, initialProperty }: FinancingSimulatorProps) {
+  const [propertyValue, setPropertyValue] = useState(initialProperty?.price ?? 1000000);
+  const [downPayment, setDownPayment] = useState(initialProperty?.price ? Math.ceil(initialProperty.price * (bank?.minDownPaymentPercent ?? 20) / 100) : 200000);
   const [years, setYears] = useState(bank?.maxYears ?? 30);
   const [amortization, setAmortization] = useState<AmortizationSystem>("SAC");
+  const [simulationResult, setSimulationResult] = useState<ReturnType<typeof calculateFinancing> | null>(null);
 
   // Taxa vinda do banco selecionado ou default
   const rate = bank?.annualRate ?? 10.5;
@@ -29,7 +34,7 @@ export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
   // Garantir que o prazo não exceda o máximo do banco
   const effectiveYears = Math.min(years, maxYears);
 
-  const result = useMemo(() => {
+  const computedResult = useMemo(() => {
     return calculateFinancing({
       propertyValue,
       downPayment: Math.max(downPayment, minDown),
@@ -39,14 +44,25 @@ export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
     });
   }, [propertyValue, downPayment, effectiveYears, rate, effectiveAmortization, minDown]);
 
+  const handleSimulate = () => {
+    setSimulationResult(computedResult);
+  };
+
   const fmt = formatCurrency;
 
   return (
     <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl md:rounded-[2rem] p-5 sm:p-8 md:p-10 shadow-2xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-4 mb-6 sm:mb-8">
-        <div className="flex items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
           <Calculator size={20} className="text-primary" />
-          <h3 className="text-lg font-semibold text-center sm:text-left">Simulador de Financiamento</h3>
+          <div className="flex flex-col items-center sm:items-start">
+            <h3 className="text-lg font-semibold text-center sm:text-left">Simulador de Financiamento</h3>
+            {initialProperty && (
+              <span className="text-[10px] uppercase font-mono tracking-widest text-primary/80 bg-primary/10 px-2 py-0.5 rounded-full mt-1">
+                Simulação para este imóvel
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Seletor de sistema de amortização */}
@@ -149,27 +165,59 @@ export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
         </div>
       </div>
 
-      {result && (
-        <div className="mt-8">
+      {/* Botão de Simulação */}
+      <div className="mt-10 flex justify-center border-t border-border/20 pt-8">
+        <Button onClick={handleSimulate} className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-12 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-[280px] max-w-full sm:w-auto">
+          Simular agora
+        </Button>
+      </div>
+
+      {simulationResult && (
+        <div className="mt-10 pt-8 border-t border-border/40 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-6 flex flex-col items-center justify-center">
+             <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-2">Resultado da Simulação</h4>
+             {initialProperty && (
+               <p className="text-xs text-muted-foreground font-mono bg-background/50 px-3 py-1 rounded-full border border-border/30">
+                 Imóvel: <span className="font-bold text-foreground">{initialProperty.title}</span>
+               </p>
+             )}
+             {bank && (
+               <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-2 flex items-center gap-2">
+                 Banco: <span className="font-bold text-foreground">{bank.name}</span> | Taxa: <span className="font-bold text-foreground">{rate.toFixed(1)}% a.a.</span> | Amor.: <span className="font-bold text-foreground">{effectiveAmortization}</span>
+               </p>
+             )}
+          </div>
+
           {/* Resultado principal */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
             <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
               <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">
                 {effectiveAmortization === "SAC" ? "1ª Parcela" : "Parcela mensal"}
               </p>
-              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-gold-gradient truncate">{fmt(result.monthlyPayment)}</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-gold-gradient truncate">{fmt(simulationResult.monthlyPayment)}</p>
+            </div>
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Valor do Imóvel</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(propertyValue)}</p>
+            </div>
+            <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total Entrada</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(downPayment)}</p>
             </div>
             <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
               <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Valor financiado</p>
-              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(result.financed)}</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(simulationResult.financed)}</p>
             </div>
+          </div>
+          
+          <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5 mt-4">
             <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
-              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total pago</p>
-              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(result.totalPaid)}</p>
+              <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total pago estimado</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-foreground truncate">{fmt(simulationResult.totalPaid)}</p>
             </div>
             <div className="bg-background/60 backdrop-blur-md border border-border/40 rounded-xl p-3 sm:p-4 text-center shadow-md overflow-hidden flex flex-col justify-center">
               <p className="text-[9px] sm:text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-1 leading-tight truncate">Total juros</p>
-              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-destructive truncate">{fmt(result.totalInterest)}</p>
+              <p className="text-[11px] xs:text-xs sm:text-base md:text-lg font-bold text-destructive truncate">{fmt(simulationResult.totalInterest)}</p>
             </div>
           </div>
 
@@ -178,11 +226,11 @@ export default function FinancingSimulator({ bank }: FinancingSimulatorProps) {
             <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
               <div className="bg-background/40 border border-border/30 rounded-lg px-4 py-2.5 flex-1 flex items-center justify-between">
                 <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Última parcela</span>
-                <span className="text-sm font-bold text-green-400">{fmt(result.lastPayment)}</span>
+                <span className="text-sm font-bold text-green-400">{fmt(simulationResult.lastPayment)}</span>
               </div>
               <div className="bg-background/40 border border-border/30 rounded-lg px-4 py-2.5 flex-1 flex items-center justify-between">
-                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Nº parcelas</span>
-                <span className="text-sm font-bold text-foreground">{result.totalInstallments}×</span>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Nº parcelas (prazo {effectiveYears} anos)</span>
+                <span className="text-sm font-bold text-foreground">{simulationResult.totalInstallments}×</span>
               </div>
             </div>
           )}

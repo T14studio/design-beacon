@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo, lazy, Suspense, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { ArrowDown, ArrowRight, Star, TrendingUp, Home, Send, MapPin, Calculator, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import hero1 from "@/assets/hero-1.jpg";
@@ -76,6 +77,7 @@ export default function Index() {
     details: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formStatus, setFormStatus] = useState<"idle" | "success" | "error">("idle");
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -87,6 +89,7 @@ export default function Index() {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
+    setFormStatus("idle");
     try {
       const { error } = await supabaseClient.from('leads').insert([
         {
@@ -98,20 +101,9 @@ export default function Index() {
       ]);
 
       if (error) {
-        console.group("Erro Supabase Detalhado");
-        console.error("Mensagem:", error.message);
-        console.error("Detalhes:", error.details);
-        console.error("Código:", error.code);
-        console.error("Sugestão:", error.hint);
-        
-        if (error.code === '42501' || error.message?.includes('row-level security')) {
-          console.warn("Dica: Isso parece ser um erro de RLS (Row-Level Security). Verifique as policies da tabela 'leads'.");
-        }
-        console.groupEnd();
-        
-        throw error;
+        setFormStatus("error");
       } else {
-        alert("Mensagem enviada com sucesso!");
+        setFormStatus("success");
         setFormData({
           fullName: "",
           email: "",
@@ -120,10 +112,8 @@ export default function Index() {
           details: ""
         });
       }
-    } catch (err: any) {
-      console.error("Erro completo capturado:", err);
-      const errorMessage = err.message || "Ocorreu um erro ao enviar sua solicitação.";
-      alert(`${errorMessage}\n\nVerifique o console para mais detalhes técnicos.`);
+    } catch {
+      setFormStatus("error");
     } finally {
       setIsSubmitting(false);
     }
@@ -321,7 +311,7 @@ export default function Index() {
                     <Link to="/simulador" className="w-full flex justify-center items-center">Simular Agora</Link>
                   </Button>
                   <Button asChild variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] w-full sm:w-auto flex justify-center items-center">
-                    <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre simulação de financiamento." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
+                    <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Nosso canal está sendo preparado. Utilize formulários de contato no site por enquanto." }); }} className="w-full flex justify-center items-center text-center">
                       Falar com especialista
                     </a>
                   </Button>
@@ -468,7 +458,7 @@ export default function Index() {
                   ))}
                 </ul>
                 <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-8 sm:px-12 h-12 sm:h-14 md:h-16 shadow-2xl rounded-full btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto flex items-center justify-center">
-                   <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar sobre o anúncio e avaliação do meu imóvel." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
+                   <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Por favor, utilize os demais canais do site para anunciar seu imóvel." }); }} className="w-full flex justify-center items-center text-center">
                       Quero anunciar meu imóvel
                    </a>
                 </Button>
@@ -476,7 +466,7 @@ export default function Index() {
             </ScrollReveal>
 
             <ScrollReveal delay={300}>
-              <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] lg:rounded-[3rem] p-6 sm:p-8 md:p-10 lg:p-14 shadow-2xl relative overflow-hidden group">
+              <div id="diagnostico" className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-2xl sm:rounded-[2rem] md:rounded-[2.5rem] lg:rounded-[3rem] p-6 sm:p-8 md:p-10 lg:p-14 shadow-2xl relative overflow-hidden group">
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
                 <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3 sm:mb-4 tracking-tight">Diagnóstico de Mercado</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground mb-6 sm:mb-8 md:mb-10 font-light">
@@ -534,6 +524,12 @@ export default function Index() {
                   >
                     {isSubmitting ? "Enviando..." : "Solicitar Avaliação Premium"}
                   </Button>
+                  {formStatus === "success" && (
+                    <p className="text-xs text-green-500 text-center font-medium mt-1">✓ Solicitação enviada com sucesso! Entraremos em contato em breve.</p>
+                  )}
+                  {formStatus === "error" && (
+                    <p className="text-xs text-red-400 text-center font-medium mt-1">Não foi possível enviar. Por favor, tente novamente ou entre em contato via WhatsApp.</p>
+                  )}
                   <p className="text-[8px] sm:text-[9px] text-muted-foreground/60 leading-relaxed mt-3 sm:mt-4 text-center">
                     ESTOU DE ACORDO EM FORNECER MEU NOME E E-MAIL PARA QUE A AXIS IMOBILIÁRIA ENTRE EM CONTATO COMIGO, E CIENTE DE QUE ESSES DADOS SERÃO UTILIZADOS PELAS ÁREAS DE MARKETING E COMERCIAL DA IMOBILIÁRIA COMO CADASTRO PARA ENVIO DE E-MAILS.
                   </p>
@@ -650,7 +646,7 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8">
               <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-10 md:px-12 h-12 sm:h-14 md:h-16 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto shadow-2xl rounded-full btn-shine shadow-primary/30 flex items-center justify-center">
-                <a href="https://wa.me/5567991193513?text=Olá! Gostaria de falar com um especialista sobre os imóveis." target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
+                <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Nosso canal oficial no Brasil está em desenvolvimento." }); }} className="w-full flex justify-center items-center text-center">
                   Falar com especialista no WhatsApp
                 </a>
               </Button>

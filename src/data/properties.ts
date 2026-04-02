@@ -550,8 +550,8 @@ export const properties: Property[] = [
     ],
     featured: false,
     hasLocation: false,
-    lat: -21.1261,
-    lng: -56.4839,
+    lat: 0,
+    lng: 0,
   },
 
   {
@@ -741,7 +741,7 @@ export const properties: Property[] = [
     address: "Rua Joaquim Murtinho",
     bedrooms: 0,
     bathrooms: 0,
-    area: 0,
+    area: 0, // Área não informada — exibir apenas vagas e características
     parking: 2,
     description:
       "Casa comercial com fachada ampla, portão frontal e 2 vagas de garagem. Ambientes internos adaptáveis para escritórios, clínicas médicas, odontológicas ou similares. Rua Joaquim Murtinho, excelente acessibilidade.",

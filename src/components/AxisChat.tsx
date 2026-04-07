@@ -20,13 +20,25 @@ interface AxisChatProps {
 
 export default function AxisChat({ initialMessage, propertyContext, isOpen, onClose }: AxisChatProps) {
   const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem("axis_chat_messages");
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem("axis_chat_messages");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.warn("Could not load chat messages from localStorage:", e);
+      return [];
+    }
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [sessionId, setSessionId] = useState<string | null>(localStorage.getItem("axis_session_id"));
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("axis_session_id");
+    } catch (e) {
+      console.warn("Could not load axis_session_id from localStorage:", e);
+      return null;
+    }
+  });
 
   // Persist messages to localStorage
   useEffect(() => {
@@ -34,7 +46,7 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
   }, [messages]);
 
   // URL do Webhook da Axis (n8n)
-  const AXIS_WEBHOOK_URL = import.meta.env.VITE_AXIS_WEBHOOK_URL || "https://n8n.botaxis.com/webhook/axis/v1/turn";
+  const AXIS_WEBHOOK_URL = (import.meta.env.VITE_AXIS_WEBHOOK_URL as string) || "https://n8n.botaxis.com/webhook/axis/v1/turn";
 
   useEffect(() => {
     if (isOpen) {

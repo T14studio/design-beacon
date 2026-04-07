@@ -1,0 +1,832 @@
+{
+  "name": "AXIS — Produção Site Final (Nativo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "axis/v1/turn",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node_01",
+      "name": "01 Webhook Site Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst message = (body.message || '').trim();\nconst phone = body.phone ? body.phone.replace(/\\D/g, '') : null;\nconst browser_user_id = body.browser_user_id || null;\nconst identifier = phone || browser_user_id;\nconst channel = body.channel || 'website';\n\nif (!identifier) throw new Error('Campo obrigatório ausente: phone ou browser_user_id');\nif (!message) throw new Error('Campo obrigatório ausente: message');\n\nlet propertyRef = body.property_code || null;\nif (!propertyRef) {\n  const codeMatch = message.match(/\\bREF[-_]?\\d+\\b/i);\n  const slugMatch = message.match(/imovel\\/([\\w-]+)/i);\n  propertyRef = codeMatch ? codeMatch[0].toUpperCase().replace(/[-_]/g, '') : (slugMatch ? slugMatch[1] : null);\n}\n\nreturn [{\n  json: {\n    identifier,\n    channel,\n    message,\n    property_ref: propertyRef,\n    name: body.name || null\n  }\n}];"
+      },
+      "id": "node_02",
+      "name": "02 Code: Normaliza Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "properties",
+        "returnAll": false,
+        "limit": 1,
+        "filterByFormula": "=property_code.eq.{{ $json.property_ref }}",
+        "options": {}
+      },
+      "id": "node_03",
+      "name": "03 Supabase: Get Property",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "returnAll": false,
+        "limit": 1,
+        "filterByFormula": "=channel_user_id.eq.{{ $('02 Code: Normaliza Payload').item.json.identifier }}",
+        "options": {}
+      },
+      "id": "node_04_a",
+      "name": "04A Supabase: Get Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id ? true : false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_04_b",
+      "name": "04B IF Customer Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        700,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "customers",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.channel }}"
+            },
+            {
+              "fieldId": "channel_user_id",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.identifier }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.name }}"
+            }
+          ]
+        }
+      },
+      "id": "node_04_c",
+      "name": "04C Supabase: Create Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        600
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { customer_id: $json.id || $('04B IF Customer Exists').item.json.id } }];"
+      },
+      "id": "node_04_d",
+      "name": "04D Merge Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "sessions",
+        "returnAll": false,
+        "limit": 1,
+        "filterByFormula": "=channel_user_id.eq.{{ $('02 Code: Normaliza Payload').item.json.identifier }},is_active.eq.true",
+        "options": {
+          "sort": "created_at:desc"
+        }
+      },
+      "id": "node_05_a",
+      "name": "05A Supabase: Get Active Session",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id ? true : false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_05_b",
+      "name": "05B IF Session Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "sessions",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "channel",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.channel }}"
+            },
+            {
+              "fieldId": "channel_user_id",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.identifier }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $('04D Merge Customer').item.json.customer_id }}"
+            },
+            {
+              "fieldId": "current_state",
+              "fieldValue": "recepcao"
+            },
+            {
+              "fieldId": "is_active",
+              "fieldValue": true
+            },
+            {
+              "fieldId": "loop_counter",
+              "fieldValue": 0
+            },
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('03 Supabase: Get Property').item.json[0]?.id || null }}"
+            }
+          ]
+        }
+      },
+      "id": "node_05_c",
+      "name": "05C Supabase: Create Session",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        600
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $json.id ? $json : $('05B IF Session Exists').item.json;\nreturn [{ json: { session_id: s.id, current_state: s.current_state, property_id: s.property_id || ($('03 Supabase: Get Property').item.json[0] ? $('03 Supabase: Get Property').item.json[0].id : null), loop_counter: s.loop_counter || 0 } }];"
+      },
+      "id": "node_05_d",
+      "name": "05D Merge Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "messages",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $('05D Merge Session').item.json.session_id }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "user"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('02 Code: Normaliza Payload').item.json.message }}"
+            }
+          ]
+        }
+      },
+      "id": "node_06",
+      "name": "06 Supabase: Save Inbound Msg",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "messages",
+        "returnAll": false,
+        "limit": 15,
+        "filterByFormula": "=session_id.eq.{{ $('05D Merge Session').item.json.session_id }}",
+        "options": {
+          "sort": "created_at:asc"
+        }
+      },
+      "id": "node_07",
+      "name": "07 Supabase: Get History",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const session = $('05D Merge Session').item.json;\nconst inbound = $('02 Code: Normaliza Payload').item.json.message;\nlet propertyStr = '';\nif ($('03 Supabase: Get Property').item.json && $('03 Supabase: Get Property').item.json[0]) {\n  const p = $('03 Supabase: Get Property').item.json[0];\n  propertyStr = `\\nIMÓVEL EM CONTEXTO: [${p.property_code}] ${p.title} (Bairro: ${p.neighborhood})`;\n}\nconst history = $input.all().map(i => `[${i.json.role.toUpperCase()}]: ${i.json.content}`).join('\\n');\n\nconst systemPrompt = `Você é a Axis, assistente virtual da Ética.\\nAtue com base na operação comercial e administrativa da imobiliária.\\n${propertyStr}\\n\\nHISTÓRICO:\\n${history}\\n\\nRETORNE APENAS UM JSON ESTRUTURADO:\\n{\\n  \"message_to_user\": \"string\",\\n  \"etapa_da_conversa\": \"string\",\\n  \"handoff_recomendado\": boolean,\\n  \"setor_destino\": \"string\",\\n  \"prioridade\": \"media\"\\n}`;\n\nreturn [{ json: { system_prompt: systemPrompt, user_message: inbound, session_id: session.session_id, property_id: session.property_id, loop_counter: session.loop_counter } }];"
+      },
+      "id": "node_08",
+      "name": "08 Code: Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "content": "={{ $json.system_prompt }}"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.user_message }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "node_09",
+      "name": "09 OpenAI Native: Axis",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        2700,
+        500
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai_cred",
+          "name": "OpenAI Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const rawContent = $input.first().json.choices[0].message.content;\n  const data = JSON.parse(rawContent);\n  return [{ json: data }];\n} catch (e) {\n  throw new Error('Falha ao processar resposta da OpenAI: ' + e.message);\n}"
+      },
+      "id": "node_10",
+      "name": "10 Code: Parse Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "messages",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.session_id }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "assistant"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.message_to_user }}"
+            }
+          ]
+        }
+      },
+      "id": "node_11",
+      "name": "11 Supabase: Save Outbound Msg",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3100,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sessions",
+        "matchColumns": "id",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.session_id }}"
+            },
+            {
+              "fieldId": "current_state",
+              "fieldValue": "={{ $json.etapa_da_conversa }}"
+            },
+            {
+              "fieldId": "loop_counter",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.loop_counter + 1 }}"
+            },
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.property_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node_12",
+      "name": "12 Supabase: Update Session",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3100,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('10 Code: Parse Output').item.json.handoff_recomendado }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node_13_a",
+      "name": "13A IF Handoff",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "handoff_tickets",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.session_id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "aberto"
+            },
+            {
+              "fieldId": "setor_destino",
+              "fieldValue": "={{ $('10 Code: Parse Output').item.json.setor_destino }}"
+            },
+            {
+              "fieldId": "prioridade",
+              "fieldValue": "={{ $('10 Code: Parse Output').item.json.prioridade }}"
+            },
+            {
+              "fieldId": "property_id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.property_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node_13_b",
+      "name": "13B Supabase: Create Ticket",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3500,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sessions",
+        "matchColumns": "id",
+        "dataToSend": "defineBelow",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldId": "id",
+              "fieldValue": "={{ $('08 Code: Build Prompt').item.json.session_id }}"
+            },
+            {
+              "fieldId": "is_active",
+              "fieldValue": false
+            }
+          ]
+        }
+      },
+      "id": "node_13_c",
+      "name": "13C Supabase: Close Session",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3700,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase_cred",
+          "name": "Supabase Config"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"ok\",\n  \"session_id\": \"{{ $('08 Code: Build Prompt').item.json.session_id }}\",\n  \"reply\": \"{{ $('10 Code: Parse Output').item.json.message_to_user }}\",\n  \"current_state\": \"{{ $('10 Code: Parse Output').item.json.etapa_da_conversa }}\",\n  \"handoff_triggered\": {{ $('10 Code: Parse Output').item.json.handoff_recomendado }},\n  \"setor_destino\": \"{{ $('10 Code: Parse Output').item.json.setor_destino }}\",\n  \"prioridade\": \"{{ $('10 Code: Parse Output').item.json.prioridade }}\",\n  \"property_id\": \"{{ $('08 Code: Build Prompt').item.json.property_id }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node_14",
+      "name": "14 Respond to Webhook Site",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "01 Webhook Site Inbound": {
+      "main": [
+        [
+          {
+            "node": "02 Code: Normaliza Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 Code: Normaliza Payload": {
+      "main": [
+        [
+          {
+            "node": "03 Supabase: Get Property",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "04A Supabase: Get Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04A Supabase: Get Customer": {
+      "main": [
+        [
+          {
+            "node": "04B IF Customer Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04B IF Customer Exists": {
+      "main": [
+        [
+          {
+            "node": "04D Merge Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "04C Supabase: Create Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04C Supabase: Create Customer": {
+      "main": [
+        [
+          {
+            "node": "04D Merge Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04D Merge Customer": {
+      "main": [
+        [
+          {
+            "node": "05A Supabase: Get Active Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 Supabase: Get Property": {
+      "main": [
+        [
+          {
+            "node": "04A Supabase: Get Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05A Supabase: Get Active Session": {
+      "main": [
+        [
+          {
+            "node": "05B IF Session Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05B IF Session Exists": {
+      "main": [
+        [
+          {
+            "node": "05D Merge Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "05C Supabase: Create Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05C Supabase: Create Session": {
+      "main": [
+        [
+          {
+            "node": "05D Merge Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "05D Merge Session": {
+      "main": [
+        [
+          {
+            "node": "06 Supabase: Save Inbound Msg",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "07 Supabase: Get History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "07 Supabase: Get History": {
+      "main": [
+        [
+          {
+            "node": "08 Code: Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "08 Code: Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "09 OpenAI Native: Axis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "09 OpenAI Native: Axis": {
+      "main": [
+        [
+          {
+            "node": "10 Code: Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10 Code: Parse Output": {
+      "main": [
+        [
+          {
+            "node": "11 Supabase: Save Outbound Msg",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "12 Supabase: Update Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12 Supabase: Update Session": {
+      "main": [
+        [
+          {
+            "node": "13A IF Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13A IF Handoff": {
+      "main": [
+        [
+          {
+            "node": "13B Supabase: Create Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "14 Respond to Webhook Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13B Supabase: Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "13C Supabase: Close Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13C Supabase: Close Session": {
+      "main": [
+        [
+          {
+            "node": "14 Respond to Webhook Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

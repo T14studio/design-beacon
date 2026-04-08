@@ -216,7 +216,6 @@ export default function PropertyDetail() {
                       <MessageCircle size={18} />
                       Falar com a Axis
                     </Button>
-                    
                     <Button
                       asChild
                       className="w-full bg-gold-gradient text-primary-foreground font-bold tracking-widest uppercase h-14 hover:shadow-lg transition-all rounded-full btn-shine shadow-gold-gradient/20"

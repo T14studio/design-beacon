@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { MessageCircle, X, Send, User, Bot, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  type?: "text" | "gallery";
+  images?: string[];
+  title?: string;
 }
 
 interface AxisChatProps {
@@ -64,6 +68,28 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
 
   const AXIS_WEBHOOK_URL = getWebhookUrl();
 
+  const propertyImages = useMemo<string[]>(() => {
+    const imgs = propertyContext?.images;
+    return Array.isArray(imgs) ? imgs.filter(Boolean) : [];
+  }, [propertyContext]);
+
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+
+  const isPhotoIntent = (text: string) => {
+    const t = (text || "").toLowerCase();
+    return (
+      t.includes("mais foto") ||
+      t.includes("mais fotos") ||
+      t.includes("ver fotos") ||
+      t.includes("me mostra as fotos") ||
+      t.includes("mostrar as fotos") ||
+      t.includes("tem mais imagens") ||
+      t.includes("mais imagens") ||
+      t.includes("ver esse imóvel melhor") ||
+      t.includes("ver este imóvel melhor")
+    );
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (messages.length === 0 && !initialMessage) {
@@ -95,8 +121,39 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
     }
   }, [messages]);
 
+  const showPropertyGallery = (originText?: string) => {
+    if (!propertyContext || propertyImages.length === 0) {
+      return false;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        type: "gallery",
+        title: propertyContext?.title ? `Fotos de: ${propertyContext.title}` : "Fotos do imóvel",
+        content:
+          originText && originText.trim()
+            ? `Perfeito — aqui estão mais fotos do imóvel${propertyContext?.title ? ` "${propertyContext.title}"` : ""}.`
+            : `Aqui estão as fotos do imóvel${propertyContext?.title ? ` "${propertyContext.title}"` : ""}.`,
+        images: propertyImages,
+      },
+    ]);
+    setIsGalleryOpen(true);
+    return true;
+  };
+
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
+
+    // Intercepta intenção de fotos e resolve VISUALMENTE no site (sem resposta genérica em texto)
+    if (isPhotoIntent(text) && propertyImages.length > 0) {
+      const userMessage: Message = { role: "user", content: text };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      showPropertyGallery(text);
+      return;
+    }
 
     const userMessage: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
@@ -119,7 +176,11 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         optional_context: propertyContext ? {
           page_url: window.location.href,
           property_id: propertyContext.id,
-          property_title: propertyContext.title
+          property_title: propertyContext.title,
+          property_mode: propertyContext.mode,
+          property_type: propertyContext.type,
+          address: propertyContext.address,
+          price: propertyContext.price
         } : null,
         property_code: propertyContext ? propertyContext.id : null
       };
@@ -142,6 +203,9 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
       if (data.session_id) {
         setSessionId(data.session_id);
         localStorage.setItem("axis_session_id", data.session_id);
+      }
+      if (data.nome_cliente && typeof data.nome_cliente === "string") {
+        localStorage.setItem("axis_user_name", data.nome_cliente);
       }
 
       let botMsgContent = "Desculpe, tive um problema ao processar sua resposta.";
@@ -186,6 +250,7 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed bottom-24 right-4 sm:right-6 z-[60] w-[90vw] sm:w-[400px] h-[500px] max-h-[70vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
       {/* Header */}
       <div className="p-4 bg-gold-gradient flex items-center justify-between shadow-md">
@@ -215,6 +280,31 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
               <div className={cn("max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm", 
                 msg.role === "user" ? "bg-card border border-border" : "bg-card border border-primary/20 text-foreground")}>
                 {msg.content}
+                {msg.type === "gallery" && Array.isArray(msg.images) && msg.images.length > 0 && (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsGalleryOpen(true)}
+                      className="text-[10px] h-7 border-primary/30 hover:bg-primary/10 rounded-full"
+                    >
+                      Abrir galeria ({msg.images.length})
+                    </Button>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {msg.images.slice(0, 6).map((src, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setIsGalleryOpen(true)}
+                          className="rounded-lg overflow-hidden border border-border/60 hover:border-primary/30 transition-colors"
+                          aria-label="Ver foto do imóvel"
+                        >
+                          <img src={src} alt="" className="w-full h-16 object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -227,7 +317,14 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
                   key={idx}
                   variant="outline"
                   size="sm"
-                  onClick={() => handleSendMessage(cta)}
+                  onClick={() => {
+                    const normalized = (cta || "").toLowerCase().trim();
+                    if ((normalized.includes("foto") || normalized.includes("imagem")) && propertyImages.length > 0) {
+                      showPropertyGallery(cta);
+                      return;
+                    }
+                    handleSendMessage(cta);
+                  }}
                   className="text-[10px] h-7 border-primary/30 hover:bg-primary/10 rounded-full animate-in fade-in slide-in-from-bottom-1 duration-300"
                 >
                   {cta}
@@ -272,5 +369,33 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         </Button>
       </form>
     </div>
+
+    <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {propertyContext?.title ? `Galeria — ${propertyContext.title}` : "Galeria do imóvel"}
+          </DialogTitle>
+        </DialogHeader>
+        {propertyImages.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Não encontrei imagens para este imóvel.</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {propertyImages.map((src, idx) => (
+              <a
+                key={idx}
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl overflow-hidden border border-border hover:border-primary/30 transition-colors"
+              >
+                <img src={src} alt="" className="w-full h-40 object-cover" />
+              </a>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

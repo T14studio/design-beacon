@@ -31,7 +31,12 @@ export default function WhatsAppButton() {
           setChatData({
             propertyContext: {
               id: property.id,
-              title: property.title
+              title: property.title,
+              mode: property.mode,
+              type: property.type,
+              address: property.address,
+              price: property.price,
+              images: property.images
             }
           });
         }

@@ -1,7 +1,16 @@
-import { expect, test } from 'vitest'
-import { supabaseClient } from '../lib/supabase'
+import { expect, test } from "vitest";
+import { supabaseClient } from "../lib/supabase";
 
-test('Supabase Insert Test', async () => {
+const url = String(import.meta.env.VITE_SUPABASE_URL || "");
+const key = String(import.meta.env.VITE_SUPABASE_ANON_KEY || "");
+const isConfigured =
+  Boolean(url) &&
+  Boolean(key) &&
+  url.startsWith("https://") &&
+  !url.includes("seu-projeto.supabase.co") &&
+  !key.includes("sua-anon-key-aqui");
+
+test.runIf(isConfigured)("Supabase Insert Test", async () => {
   const { data, error } = await supabaseClient.from('leads').insert([
     {
       name: 'Teste Antigravity',

@@ -1,7 +1,11 @@
-import { expect, test } from 'vitest'
-import { supabaseClient } from '../lib/supabase'
+import { expect, test } from "vitest";
+import { supabaseClient } from "../lib/supabase";
 
-test('Supabase Insert Test', async () => {
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+const isConfigured = Boolean(supabaseUrl) && Boolean(supabaseKey);
+
+test.runIf(isConfigured)("Supabase Insert Test", async () => {
   const { data, error } = await supabaseClient.from('leads').insert([
     {
       name: 'Teste Antigravity',

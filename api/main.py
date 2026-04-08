@@ -19,6 +19,7 @@ from supabase_service import SupabaseService
 from openai_service import OpenAIService
 from security import check_rate_limit 
 from fastapi import Request 
+import re
 
 app = FastAPI(title="Axis Backend", version="1.0.1")
 
@@ -60,6 +61,75 @@ class TurnResponse(BaseModel):
     setor_destino: Optional[str] = Field(default=None)
     prioridade: Optional[str] = Field(default=None)
     property_id: Optional[str] = Field(default=None)
+    sugestoes_de_cta: Optional[List[str]] = Field(default=None)
+    nome_cliente: Optional[str] = Field(default=None)
+
+def _infer_name_from_message(message: str) -> Optional[str]:
+    if not message:
+        return None
+    text = message.strip()
+    if len(text) < 2 or len(text) > 40:
+        return None
+
+    lowered = re.sub(r"\s+", " ", text.lower())
+    if lowered in {
+        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite",
+        "eai", "e aí", "opa", "tudo bem", "tudo bem?", "oii", "oiii"
+    }:
+        return None
+
+    m = re.search(r"\b(meu nome (é|eh)|me chamo|sou)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'\- ]{1,30})\b", text, re.IGNORECASE)
+    if m:
+        name = re.sub(r"\s{2,}", " ", m.group(3).strip())
+        return name[:1].upper() + name[1:]
+
+    if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]{2,20}(\s+[A-Za-zÀ-ÖØ-öø-ÿ]{2,20})?", text):
+        parts = text.split()
+        return " ".join([p[:1].upper() + p[1:].lower() for p in parts])
+
+    return None
+
+def _route_department_from_message(message: str) -> Optional[str]:
+    m = (message or "").lower()
+    financeiro = ["boleto", "2ª via", "2a via", "segunda via", "comprovante", "pagamento", "vencimento", "multa", "juros", "cobran", "atraso", "repasse", "extrato"]
+    administrativo = ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "manuten", "vazamento", "renova", "rescind", "rescis", "seguro", "fiança", "fianca", "fechamento de locação", "fechamento de locacao"]
+    comercial = ["comprar", "compra", "alugar", "loca", "visita", "agendar", "proposta", "financ", "simula", "vender", "anunciar", "avali", "interesse"]
+
+    if any(k in m for k in financeiro):
+        return "financeiro"
+    if any(k in m for k in administrativo):
+        return "administrativo"
+    if any(k in m for k in comercial):
+        return "comercial"
+    return None
+
+class ClientContractsSearchPayload(BaseModel):
+    document: str = Field(..., description="CPF ou CNPJ do cliente (com ou sem máscara).")
+
+class ClientContract(BaseModel):
+    id: str = Field(...)
+    contract_number: str = Field(...)
+    pdf_url: Optional[str] = Field(default=None)
+    pdf_path: Optional[str] = Field(default=None)
+    created_at: Optional[str] = Field(default=None)
+
+class ClientContractsSearchResponse(BaseModel):
+    status: str = Field(...)
+    contracts: List[ClientContract] = Field(default_factory=list)
+
+@app.post("/client-area/contracts/search", response_model=ClientContractsSearchResponse)
+async def client_area_contracts_search(payload: ClientContractsSearchPayload):
+    try:
+        contracts = SupabaseService.search_contracts_by_document(payload.document, limit=20)
+        sanitized = []
+        for c in contracts:
+            if not c.get("id") or not c.get("contract_number"):
+                continue
+            sanitized.append(c)
+        return ClientContractsSearchResponse(status="ok", contracts=sanitized)
+    except Exception as e:
+        print(f"CRITICAL ERROR in client_area_contracts_search: {e}")
+        return ClientContractsSearchResponse(status="error", contracts=[])
     
 @app.post("/axis/turn", response_model=TurnResponse)
 async def handle_turn(payload: TurnPayload, request: Request):
@@ -164,6 +234,10 @@ async def handle_turn(payload: TurnPayload, request: Request):
             dados_coletados["name"] = payload.name
         if payload.phone:
             dados_coletados["phone"] = payload.phone
+        if not dados_coletados.get("name"):
+            inferred_name = _infer_name_from_message(payload.message)
+            if inferred_name:
+                dados_coletados["name"] = inferred_name
 
         # ── 7. Save incoming user message ───────────────────────────────────────
         SupabaseService.save_message(session_id, "user", payload.message)
@@ -187,6 +261,40 @@ async def handle_turn(payload: TurnPayload, request: Request):
         handed_off    = ai_result.get("handoff_recomendado", False)
         setor_destino = ai_result.get("setor_destino")
         prioridade    = ai_result.get("prioridade", "normal")
+        sugestoes_cta = ai_result.get("sugestoes_de_cta") or []
+
+        # Hard guarantee: se estiver em página de imóvel, materializar título/ref no texto
+        try:
+            ptitle = (contexto_imovel or {}).get("property_title")
+            pref = (contexto_imovel or {}).get("property_id") or property_id
+            if ptitle and ptitle not in reply:
+                prefix = f'Vi que você está olhando o imóvel "{ptitle}"'
+                if pref and pref != ptitle:
+                    prefix += f" (ref. {pref})"
+                prefix += ". "
+                reply = prefix + reply
+        except Exception:
+            pass
+
+        if dados_coletados.get("name") and not ai_result.get("nome_cliente"):
+            ai_result["nome_cliente"] = dados_coletados["name"]
+
+        if not setor_destino:
+            routed = _route_department_from_message(payload.message)
+            if routed:
+                setor_destino = routed
+                ai_result["setor_destino"] = routed
+                if routed == "administrativo" and any(k in (payload.message or "").lower() for k in ["urgente", "vazamento", "sem luz", "curto", "inund"]):
+                    ai_result["prioridade"] = "alta"
+                    prioridade = "alta"
+                if not sugestoes_cta:
+                    if routed == "financeiro":
+                        sugestoes_cta = ["Solicitar segunda via", "Enviar comprovante", "Consultar repasse", "Falar com financeiro"]
+                    elif routed == "administrativo":
+                        sugestoes_cta = ["Enviar documentos", "Descrever problema", "Acompanhar manutenção", "Falar com administrativo"]
+                    elif routed == "comercial":
+                        sugestoes_cta = ["Agendar visita", "Fazer simulação", "Falar com especialista"]
+                    ai_result["sugestoes_de_cta"] = sugestoes_cta
         
         # ── 11. Save outgoing assistant message ───────────────────────────────────
         SupabaseService.save_message(session_id, "assistant", reply, metadata=ai_result)
@@ -206,7 +314,9 @@ async def handle_turn(payload: TurnPayload, request: Request):
             handoff_triggered=handed_off,
             setor_destino=setor_destino,
             prioridade=prioridade,
-            property_id=property_id
+            property_id=property_id,
+            sugestoes_de_cta=sugestoes_cta,
+            nome_cliente=ai_result.get("nome_cliente")
         )
     except Exception as e:
         print(f"CRITICAL ERROR in handle_turn: {e}")
@@ -218,7 +328,9 @@ async def handle_turn(payload: TurnPayload, request: Request):
             handoff_triggered=False,
             setor_destino=None,
             prioridade="normal",
-            property_id=payload.property_code
+            property_id=payload.property_code,
+            sugestoes_de_cta=None,
+            nome_cliente=None
         )
 
 # End of API

@@ -75,7 +75,7 @@ export default function Navbar() {
               Especialista
             </a>
             <a
-              href="/#diagnostico"
+              href="/cliente"
               onClick={() => setOpen(false)}
               className="bg-primary hover:bg-primary/90 transition-colors text-primary-foreground text-[9px] lg:text-[10px] font-bold tracking-[0.2em] uppercase px-5 lg:px-8 py-2.5 lg:py-3.5 rounded-full select-none text-center flex items-center justify-center shadow-lg shadow-primary/20 btn-shine"
               title="Área do cliente"
@@ -115,7 +115,7 @@ export default function Navbar() {
           ))}
           
           <a
-            href="/#diagnostico"
+            href="/cliente"
             onClick={() => setOpen(false)}
             className="text-xl sm:text-2xl font-light tracking-[0.2em] uppercase hover:text-primary transition-colors text-center pb-6 border-b border-border/50 select-none text-foreground"
             title="Área do cliente"

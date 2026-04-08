@@ -204,7 +204,12 @@ export default function PropertyDetail() {
                             initialMessage: `Olá! Estou na página do imóvel "${property.title}" (${property.id}) e gostaria de mais informações.`,
                             propertyContext: {
                               id: property.id,
-                              title: property.title
+                              title: property.title,
+                              mode: property.mode,
+                              type: property.type,
+                              address: property.address,
+                              price: property.price,
+                              images: property.images
                             }
                           }
                         });

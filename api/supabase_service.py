@@ -188,3 +188,50 @@ class SupabaseService:
             })
         except Exception as e:
             print(f"Error handoff: {e}")
+
+    @staticmethod
+    def search_contracts_by_document(document: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Busca contratos por CPF/CNPJ para a Área do Cliente.
+        Esperado: tabela `contracts` com algum dos campos: cpf, cnpj, cpf_cnpj, documento.
+        Campos de PDF: pdf_url e/ou pdf_path.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return []
+        if not document:
+            return []
+
+        doc = "".join([c for c in document if c.isdigit()])
+        if len(doc) not in (11, 14):
+            return []
+
+        try:
+            select = "id,contract_number,numero_contrato,cpf,cnpj,cpf_cnpj,documento,pdf_url,pdf_path,created_at"
+            url = (
+                f"{SUPABASE_URL}/rest/v1/contracts"
+                f"?select={select}"
+                f"&or=(cpf.eq.{doc},cnpj.eq.{doc},cpf_cnpj.eq.{doc},documento.eq.{doc})"
+                f"&order=created_at.desc"
+                f"&limit={limit}"
+            )
+            res = requests.get(url, headers=get_headers())
+            if res.status_code != 200:
+                return []
+            data = res.json()
+            if not isinstance(data, list):
+                return []
+
+            normalized: List[Dict[str, Any]] = []
+            for row in data:
+                contract_number = row.get("contract_number") or row.get("numero_contrato") or row.get("id")
+                normalized.append({
+                    "id": row.get("id"),
+                    "contract_number": contract_number,
+                    "pdf_url": row.get("pdf_url"),
+                    "pdf_path": row.get("pdf_path"),
+                    "created_at": row.get("created_at"),
+                })
+            return normalized
+        except Exception as e:
+            print(f"Error search_contracts_by_document: {e}")
+            return []

@@ -5,7 +5,7 @@ from pathlib import Path
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 # Define paths relative to the current file / project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -99,6 +99,8 @@ class OpenAIService:
         messages.append({"role": "user", "content": user_message})
 
         try:
+            if client is None:
+                raise RuntimeError("OPENAI_API_KEY not configured")
             response = await client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
@@ -115,36 +117,168 @@ class OpenAIService:
             return result
         except Exception as e:
             print(f"OpenAI Error: {e}")
+
+            def _detect(msg: str) -> dict:
+                m = (msg or "").lower()
+                if any(k in m for k in ["repasse", "extrato", "prestação de contas", "prestacao de contas"]):
+                    return {"setor": "financeiro", "intencao": "repasse", "sub": "extrato" if "extrato" in m else None, "repasse_flag": True}
+                if any(k in m for k in ["segunda via", "2a via", "2ª via", "boleto", "comprovante", "pagamento", "vencimento", "multa", "juros", "cobran", "atraso"]):
+                    return {"setor": "financeiro", "intencao": "boleto", "sub": "segunda_via" if ("via" in m or "boleto" in m) else None}
+
+                if any(k in m for k in ["vazamento", "sem luz", "curto", "inund", "urgente", "manuten", "quebrou", "vazando"]):
+                    urgente = any(k in m for k in ["urgente", "inund", "curto", "sem luz", "vazamento"])
+                    return {"setor": "administrativo", "intencao": "manutencao", "sub": "urgente" if urgente else None, "urgente": urgente}
+                if any(k in m for k in ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "renova", "rescind", "rescisao", "rescisão", "seguro", "fiança", "fianca"]):
+                    return {"setor": "administrativo", "intencao": "contrato", "sub": "documentacao" if "document" in m else None}
+
+                if any(k in m for k in ["comprar", "compra", "alugar", "locaç", "locacao", "visita", "agendar", "proposta", "financ", "simula", "vender", "anunciar", "avali", "interesse"]):
+                    if "financ" in m or "simula" in m:
+                        return {"setor": "comercial", "intencao": "financiamento", "sub": "simulacao"}
+                    if "visita" in m or "agendar" in m:
+                        return {"setor": "comercial", "intencao": "agendar_visita", "sub": None}
+                    if "vender" in m or "anunciar" in m or "avali" in m:
+                        return {"setor": "comercial", "intencao": "anunciar_imovel", "sub": "avaliacao"}
+                    if "alugar" in m or "loca" in m:
+                        return {"setor": "comercial", "intencao": "alugar_imovel", "sub": None}
+                    if "comprar" in m or "compra" in m:
+                        return {"setor": "comercial", "intencao": "comprar_imovel", "sub": None}
+                    return {"setor": "comercial", "intencao": "imovel_especifico", "sub": None}
+
+                return {"setor": None, "intencao": None, "sub": None}
+
+            def _build(intent: dict) -> tuple[str, list[str], str, str | None]:
+                nome = (context.get("dados_coletados") or {}).get("name") or (context.get("sessao_acumulada") or {}).get("nome_cliente")
+                imovel = context.get("contexto_imovel") or {}
+                titulo = imovel.get("property_title")
+                pid = imovel.get("property_id")
+                modo = imovel.get("property_mode")
+                tipo = imovel.get("property_type") or imovel.get("tipo")
+
+                saud = f"Perfeito, {nome}! " if nome else ""
+                imovel_line = ""
+                if titulo or pid:
+                    imovel_line = f'Vi que você está na página do imóvel "{titulo}"' if titulo else f"Vi que você está na página do imóvel de referência {pid}"
+                    if pid and titulo:
+                        imovel_line += f" (ref. {pid})"
+                    if tipo:
+                        imovel_line += f" — {tipo}"
+                    imovel_line += ". "
+
+                if intent.get("setor") == "financeiro":
+                    if intent.get("intencao") == "repasse":
+                        return (
+                            f"{saud}Entendi. Para eu direcionar corretamente: você é proprietário (recebe repasse) ou locatário (paga boleto)? Me diga também o mês/período que você quer consultar.",
+                            ["Consultar repasse", "Solicitar extrato", "Falar com financeiro"],
+                            "qualificacao",
+                            "financeiro",
+                        )
+                    return (
+                        f"{saud}Entendi. Você precisa de boleto/2ª via ou enviar comprovante? Me informe o mês de referência e, se tiver, o número do contrato/imóvel para eu encaminhar ao financeiro.",
+                        ["Solicitar segunda via", "Enviar comprovante", "Falar com financeiro"],
+                        "qualificacao",
+                        "financeiro",
+                    )
+
+                if intent.get("setor") == "administrativo":
+                    if intent.get("intencao") == "manutencao":
+                        if intent.get("urgente"):
+                            return (
+                                f"{saud}Entendi que é URGENTE. Há risco imediato (inundação, curto-circuito, choque) e qual o imóvel/contrato? Me descreva em 1 frase o que está acontecendo agora.",
+                                ["Descrever Urgência", "Acompanhar manutenção", "Falar com administrativo"],
+                                "encaminhamento",
+                                "manutencao_prioritaria",
+                            )
+                        return (
+                            f"{saud}Certo. Para eu acionar o administrativo/manutenção: qual o imóvel/contrato e qual o problema? Se tiver fotos, me diga que você tem que eu te oriento.",
+                            ["Descrever problema", "Acompanhar manutenção", "Falar com administrativo"],
+                            "qualificacao",
+                            "administrativo",
+                        )
+                    return (
+                        f"{saud}Entendi. Para eu encaminhar ao administrativo com precisão, me diga qual contrato/imóvel está relacionado e se é documentação, assinatura, renovação ou rescisão.",
+                        ["Informar contrato", "Enviar documentos", "Falar com administrativo"],
+                        "qualificacao",
+                        "administrativo",
+                    )
+
+                if intent.get("setor") == "comercial":
+                    if intent.get("intencao") == "financiamento":
+                        return (
+                            f"{saud}{imovel_line}Ótimo — financiar é um caminho comum. Você prefere fazer uma simulação agora ou falar com um especialista para planejar as melhores condições?" + (
+                                f" Como este imóvel é para {modo.lower()}, já sigo por esse caminho." if modo in ("Venda", "Locação") else ""
+                            ),
+                            ["Fazer simulação", "Falar com especialista", "Agendar visita"],
+                            "conducao",
+                            "comercial",
+                        )
+                    if intent.get("intencao") == "agendar_visita":
+                        return (
+                            f"{saud}{imovel_line}Perfeito. Qual dia e horário você prefere para a visita? Se quiser, me diga também seu WhatsApp para confirmação.",
+                            ["Agendar agora", "Ver outros horários", "Especialista comercial"],
+                            "qualificacao",
+                            "comercial",
+                        )
+                    if intent.get("intencao") in ("comprar_imovel", "alugar_imovel", "imovel_especifico"):
+                        if modo == "Venda":
+                            suffix = "Como este imóvel é para venda, posso te ajudar a agendar visita ou preparar uma proposta."
+                        elif modo == "Locação":
+                            suffix = "Como este imóvel é para locação, posso te ajudar com visita e documentação para fechamento."
+                        else:
+                            suffix = "Você busca compra ou locação?"
+                        return (
+                            f"{saud}{imovel_line}{suffix} Qual é seu objetivo agora: agendar visita, receber mais detalhes ou fazer proposta?",
+                            ["Agendar visita", "Mais detalhes", "Fazer proposta", "Ver fotos extras"],
+                            "conducao",
+                            "comercial",
+                        )
+                    if intent.get("intencao") == "anunciar_imovel":
+                        return (
+                            f"{saud}Perfeito. Para começarmos uma avaliação: qual o tipo do imóvel, bairro/endereço e o valor que você tem em mente? Se tiver fotos, isso ajuda bastante.",
+                            ["Avaliação profissional", "Especialista de captação"],
+                            "qualificacao",
+                            "comercial",
+                        )
+
+                return (
+                    f"{saud}Me conte em poucas palavras o que você precisa (compra/locação, contrato/documentos/manutenção, ou boletos/repasses).",
+                    ["Comprar", "Locação", "Boletos", "Repasses", "Documentação"],
+                    context.get("current_state", "recepcao"),
+                    None,
+                )
+
+            intent = _detect(user_message)
+            reply, ctas, etapa, setor = _build(intent)
+
             return {
-                "message_to_user": "Desculpe, enfrentei um problema técnico instantes atrás. Pode repetir?",
-                "handoff_recomendado": False,
-                "setor_destino": None,
-                "prioridade": "normal",
-                "etapa_da_conversa": context.get("current_state", "recepcao"),
-                "nome_cliente": context.get("dados_coletados", {}).get("name"),
-                "intencao_principal": None,
-                "subintencao": None,
+                "message_to_user": reply,
+                "handoff_recomendado": True if setor in ("financeiro", "administrativo", "manutencao_prioritaria") else False,
+                "setor_destino": setor,
+                "prioridade": "alta" if intent.get("urgente") else ("comercial_alta" if intent.get("intencao") == "agendar_visita" else "normal"),
+                "etapa_da_conversa": etapa,
+                "nome_cliente": (context.get("dados_coletados", {}) or {}).get("name"),
+                "intencao_principal": intent.get("intencao"),
+                "subintencao": intent.get("sub"),
                 "estagio_da_jornada": "nao_identificado",
-                "nivel_de_confianca": 0.0,
+                "nivel_de_confianca": 0.55,
                 "perfil_cliente": "nao_identificado",
                 "tipo_de_publico": None,
-                "imovel_ou_contrato_relacionado": None,
+                "imovel_ou_contrato_relacionado": (context.get("contexto_imovel") or {}).get("property_id"),
                 "resumo_do_caso": None,
-                "proxima_acao": None,
-                "motivo_do_handoff": None,
-                "dados_minimos_coletados": [],
+                "proxima_acao": intent.get("intencao"),
+                "motivo_do_handoff": "falha_compreensao",
+                "dados_minimos_coletados": ["nome"] if (context.get("dados_coletados") or {}).get("name") else [],
                 "dados_ainda_faltantes": [],
-                "urgencia_detectada": False,
+                "urgencia_detectada": bool(intent.get("urgente")),
                 "frustracao_detectada": False,
-                "alta_intencao_comercial": False,
+                "alta_intencao_comercial": intent.get("setor") == "comercial",
                 "necessidade_operacional": None,
                 "checklist_pendente": None,
-                "manutencao_requer_chamado": None,
+                "manutencao_requer_chamado": True if intent.get("intencao") == "manutencao" else None,
                 "documento_pendente": None,
                 "anuncio_apto_ou_nao": None,
-                "repasse_ou_extrato_solicitado": None,
+                "repasse_ou_extrato_solicitado": bool(intent.get("repasse_flag")),
                 "necessidade_de_feedback_ou_finalizacao": False,
-                "origem_do_contexto_do_imovel": None,
-                "contexto_do_site_identificado": False,
-                "sugestoes_de_cta": []
+                "origem_do_contexto_do_imovel": "site_pagina_imovel" if (context.get("contexto_imovel") or {}).get("property_id") else None,
+                "contexto_do_site_identificado": bool((context.get("contexto_imovel") or {}).get("property_id")),
+                "sugestoes_de_cta": ctas
             }

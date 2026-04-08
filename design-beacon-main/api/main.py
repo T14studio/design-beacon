@@ -5,10 +5,11 @@ from pathlib import Path
 # Adiciona o diretório atual ao sys.path para garantir que imports locais funcionem no Render
 current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
-    sys.path.append(str(current_dir))
+    sys.path.insert(0, str(current_dir))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 
@@ -19,6 +20,8 @@ from supabase_service import SupabaseService
 from openai_service import OpenAIService
 from security import check_rate_limit 
 from fastapi import Request 
+import re
+import inspect
 
 app = FastAPI(title="Axis Backend", version="1.0.1")
 
@@ -39,7 +42,16 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "up", "api": "Axis Backend", "version": "1.0.0"}
+    resp = {"status": "up", "api": "Axis Backend", "version": "1.0.0"}
+    if os.getenv("AXIS_ENV") == "test":
+        resp["axis_env"] = "test"
+        try:
+            resp["supabase_service_file"] = inspect.getfile(SupabaseService)
+        except Exception:
+            resp["supabase_service_file"] = None
+        resp["has_SUPABASE_URL"] = bool(os.getenv("SUPABASE_URL"))
+        resp["has_SUPABASE_KEY"] = bool(os.getenv("SUPABASE_KEY"))
+    return resp
 
 class TurnPayload(BaseModel):
     channel: str = Field(default="website")
@@ -60,6 +72,121 @@ class TurnResponse(BaseModel):
     setor_destino: Optional[str] = Field(default=None)
     prioridade: Optional[str] = Field(default=None)
     property_id: Optional[str] = Field(default=None)
+    sugestoes_de_cta: Optional[List[str]] = Field(default=None)
+    nome_cliente: Optional[str] = Field(default=None)
+
+def _infer_name_from_message(message: str) -> Optional[str]:
+    """
+    Inferência simples e determinística para capturar nome quando o usuário responde só com o nome.
+    Evita loop de pergunta repetida e garante persistência mínima mesmo se o LLM falhar no campo.
+    """
+    if not message:
+        return None
+
+    text = message.strip()
+    if len(text) < 2 or len(text) > 40:
+        return None
+
+    # Nunca tratar saudações comuns como nome
+    lowered = re.sub(r"\s+", " ", text.lower())
+    if lowered in {
+        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite",
+        "eai", "e aí", "opa", "tudo bem", "tudo bem?", "oii", "oiii"
+    }:
+        return None
+
+    # Padrões explícitos
+    m = re.search(r"\b(meu nome (é|eh)|me chamo|sou)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'\- ]{1,30})\b", text, re.IGNORECASE)
+    if m:
+        name = m.group(3).strip()
+        name = re.sub(r"\s{2,}", " ", name)
+        return name[:1].upper() + name[1:]
+
+    # Resposta “só o nome” (uma ou duas palavras, letras)
+    if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]{2,20}(\s+[A-Za-zÀ-ÖØ-öø-ÿ]{2,20})?", text):
+        return text[:1].upper() + text[1:].lower() if " " not in text else " ".join([p[:1].upper() + p[1:].lower() for p in text.split()])
+
+    return None
+
+def _is_greeting(message: str) -> bool:
+    t = re.sub(r"\s+", " ", (message or "").strip().lower())
+    if not t:
+        return False
+    # Só considerar saudação quando for curta (evita acionar em mensagens longas como "Olá! Estou na página do imóvel...")
+    if len(t) > 20:
+        return False
+    return t in {"oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "eai", "e aí", "opa", "oii", "oiii"} or t.startswith("oi ")
+
+def _route_department_from_message(message: str) -> Optional[str]:
+    m = (message or "").lower()
+    financeiro = ["boleto", "2ª via", "2a via", "segunda via", "comprovante", "pagamento", "vencimento", "multa", "juros", "cobran", "atraso", "repasse", "extrato"]
+    administrativo = ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "manuten", "vazamento", "renova", "rescind", "rescis", "seguro", "fiança", "fianca", "fechamento de locação", "fechamento de locacao"]
+    comercial = ["comprar", "compra", "alugar", "loca", "visita", "agendar", "proposta", "financ", "simula", "vender", "anunciar", "avali", "interesse"]
+
+    # Manutenção urgente deve ter prioridade e fila correta
+    if any(k in m for k in ["vazamento", "inund", "curto", "sem luz"]) and any(k in m for k in ["urgente", "agora", "socorro", "perigo"]):
+        return "manutencao_prioritaria"
+
+    if any(k in m for k in financeiro):
+        return "financeiro"
+    if any(k in m for k in administrativo):
+        return "administrativo"
+    if any(k in m for k in comercial):
+        return "comercial"
+    return None
+
+class ClientContractsSearchPayload(BaseModel):
+    document: str = Field(..., description="CPF ou CNPJ do cliente (com ou sem máscara).")
+
+class ClientContract(BaseModel):
+    id: str = Field(...)
+    contract_number: str = Field(...)
+    pdf_url: Optional[str] = Field(default=None)
+    pdf_path: Optional[str] = Field(default=None)
+    created_at: Optional[str] = Field(default=None)
+
+class ClientContractsSearchResponse(BaseModel):
+    status: str = Field(...)
+    contracts: List[ClientContract] = Field(default_factory=list)
+
+@app.post("/client-area/contracts/search", response_model=ClientContractsSearchResponse)
+async def client_area_contracts_search(payload: ClientContractsSearchPayload):
+    try:
+        contracts = SupabaseService.search_contracts_by_document(payload.document, limit=20)
+        # Only return records that have at least an id and a contract number
+        sanitized = []
+        for c in contracts:
+            if not c.get("id") or not c.get("contract_number"):
+                continue
+            sanitized.append(c)
+        return ClientContractsSearchResponse(status="ok", contracts=sanitized)
+    except Exception as e:
+        print(f"CRITICAL ERROR in client_area_contracts_search: {e}")
+        return ClientContractsSearchResponse(status="error", contracts=[])
+
+@app.get("/client-area/contracts/test/{contract_id}/pdf")
+async def client_area_test_contract_pdf(contract_id: str):
+    """
+    Endpoint somente para validação local em AXIS_ENV=test, sem depender de Supabase/Storage.
+    Retorna um PDF mínimo válido.
+    """
+    if os.getenv("AXIS_ENV") != "test":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    # PDF mínimo (1 página), suficiente para abrir/baixar e validar o fluxo.
+    pdf_bytes = (
+        b"%PDF-1.4\n"
+        b"1 0 obj<<>>endobj\n"
+        b"2 0 obj<< /Type /Catalog /Pages 3 0 R >>endobj\n"
+        b"3 0 obj<< /Type /Pages /Kids [4 0 R] /Count 1 >>endobj\n"
+        b"4 0 obj<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] >>endobj\n"
+        b"xref\n0 5\n0000000000 65535 f \n"
+        b"0000000010 00000 n \n0000000030 00000 n \n0000000079 00000 n \n0000000136 00000 n \n"
+        b"trailer<< /Size 5 /Root 2 0 R >>\nstartxref\n200\n%%EOF\n"
+    )
+    return Response(content=pdf_bytes, media_type="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="{contract_id}.pdf"'
+    })
     
 @app.post("/axis/turn", response_model=TurnResponse)
 async def handle_turn(payload: TurnPayload, request: Request):
@@ -113,6 +240,64 @@ async def handle_turn(payload: TurnPayload, request: Request):
             "proxima_acao":    session.get("proxima_acao")   or session_meta.get("proxima_acao"),
         }
 
+        # ── 2.1 Gate de qualificação inicial (Nome) ─────────────────────────────
+        # Critério de fechamento: Axis pede nome e não repete na mesma sessão.
+        if (
+            current_state == "recepcao"
+            and not (session.get("nome_cliente") or (session.get("metadata") or {}).get("nome_cliente"))
+            and not payload.name
+            and payload.message
+            and _is_greeting(payload.message)
+        ):
+            SupabaseService.save_message(session_id, "user", payload.message)
+            ai_result = {
+                "message_to_user": "Olá! Para eu te atender melhor, qual seu nome?",
+                "handoff_recomendado": False,
+                "setor_destino": None,
+                "prioridade": "normal",
+                "etapa_da_conversa": "qualificacao",
+                "nome_cliente": None,
+                "intencao_principal": None,
+                "subintencao": None,
+                "estagio_da_jornada": "nao_identificado",
+                "nivel_de_confianca": 0.9,
+                "perfil_cliente": "nao_identificado",
+                "tipo_de_publico": None,
+                "imovel_ou_contrato_relacionado": None,
+                "resumo_do_caso": None,
+                "proxima_acao": "coletar_nome",
+                "motivo_do_handoff": None,
+                "dados_minimos_coletados": [],
+                "dados_ainda_faltantes": ["nome"],
+                "urgencia_detectada": False,
+                "frustracao_detectada": False,
+                "alta_intencao_comercial": False,
+                "necessidade_operacional": None,
+                "checklist_pendente": None,
+                "manutencao_requer_chamado": None,
+                "documento_pendente": None,
+                "anuncio_apto_ou_nao": None,
+                "repasse_ou_extrato_solicitado": None,
+                "necessidade_de_feedback_ou_finalizacao": False,
+                "origem_do_contexto_do_imovel": None,
+                "contexto_do_site_identificado": False,
+                "sugestoes_de_cta": ["Meu nome é ..."],
+            }
+            SupabaseService.save_message(session_id, "assistant", ai_result["message_to_user"], metadata=ai_result)
+            SupabaseService.update_session_full_state(session_id, ai_result, current_state)
+            return TurnResponse(
+                status="ok",
+                session_id=session_id,
+                reply=ai_result["message_to_user"],
+                current_state=ai_result["etapa_da_conversa"],
+                handoff_triggered=False,
+                setor_destino=None,
+                prioridade="normal",
+                property_id=payload.property_code,
+                sugestoes_de_cta=ai_result["sugestoes_de_cta"],
+                nome_cliente=None,
+            )
+
         # ── 4. Handle Property Context ───────────────────────────────────────────
         property_id = payload.property_code or accumulated_state["imovel_ref"]
         contexto_imovel = dict(payload.optional_context or {})
@@ -164,6 +349,10 @@ async def handle_turn(payload: TurnPayload, request: Request):
             dados_coletados["name"] = payload.name
         if payload.phone:
             dados_coletados["phone"] = payload.phone
+        if not dados_coletados.get("name"):
+            inferred_name = _infer_name_from_message(payload.message)
+            if inferred_name:
+                dados_coletados["name"] = inferred_name
 
         # ── 7. Save incoming user message ───────────────────────────────────────
         SupabaseService.save_message(session_id, "user", payload.message)
@@ -187,6 +376,58 @@ async def handle_turn(payload: TurnPayload, request: Request):
         handed_off    = ai_result.get("handoff_recomendado", False)
         setor_destino = ai_result.get("setor_destino")
         prioridade    = ai_result.get("prioridade", "normal")
+        sugestoes_cta = ai_result.get("sugestoes_de_cta") or []
+
+        # Hard guarantee: se estiver em página de imóvel, materializar título/ref no texto final
+        try:
+            ptitle = (contexto_imovel or {}).get("property_title")
+            pref = (contexto_imovel or {}).get("property_id") or property_id
+            if ptitle and ptitle not in reply:
+                prefix = f'Vi que você está olhando o imóvel "{ptitle}"'
+                if pref and pref != ptitle:
+                    prefix += f" (ref. {pref})"
+                prefix += ". "
+                reply = prefix + reply
+        except Exception:
+            pass
+
+        # Hard guarantee: if we inferred a name and the model didn't return it, enforce it
+        if dados_coletados.get("name") and not ai_result.get("nome_cliente"):
+            ai_result["nome_cliente"] = dados_coletados["name"]
+
+        # Hard guarantee: manutenção urgente deve ir para fila correta
+        msg_lower = (payload.message or "").lower()
+        is_urgente_manutencao = any(k in msg_lower for k in ["vazamento", "inund", "curto", "sem luz"]) and any(k in msg_lower for k in ["urgente", "agora", "socorro", "perigo"])
+        if is_urgente_manutencao and setor_destino != "manutencao_prioritaria":
+            setor_destino = "manutencao_prioritaria"
+            ai_result["setor_destino"] = "manutencao_prioritaria"
+            prioridade = "alta"
+            ai_result["prioridade"] = "alta"
+            if not sugestoes_cta:
+                sugestoes_cta = ["Descrever Urgência", "Falar com administrativo"]
+                ai_result["sugestoes_de_cta"] = sugestoes_cta
+
+        # Hard guarantee: department routing must not be wrong/empty on clear intents
+        if not setor_destino:
+            routed = _route_department_from_message(payload.message)
+            if routed:
+                setor_destino = routed
+                ai_result["setor_destino"] = routed
+
+                # Boost priority on urgent maintenance
+                if routed == "administrativo" and any(k in (payload.message or "").lower() for k in ["urgente", "vazamento", "sem luz", "curto", "inund"]):
+                    ai_result["prioridade"] = "alta"
+                    prioridade = "alta"
+
+                # Provide minimal CTAs when model didn't
+                if not sugestoes_cta:
+                    if routed == "financeiro":
+                        sugestoes_cta = ["Solicitar segunda via", "Enviar comprovante", "Consultar repasse", "Falar com financeiro"]
+                    elif routed == "administrativo":
+                        sugestoes_cta = ["Enviar documentos", "Descrever problema", "Acompanhar manutenção", "Falar com administrativo"]
+                    elif routed == "comercial":
+                        sugestoes_cta = ["Agendar visita", "Fazer simulação", "Falar com especialista"]
+                    ai_result["sugestoes_de_cta"] = sugestoes_cta
         
         # ── 11. Save outgoing assistant message ───────────────────────────────────
         SupabaseService.save_message(session_id, "assistant", reply, metadata=ai_result)
@@ -206,7 +447,9 @@ async def handle_turn(payload: TurnPayload, request: Request):
             handoff_triggered=handed_off,
             setor_destino=setor_destino,
             prioridade=prioridade,
-            property_id=property_id
+            property_id=property_id,
+            sugestoes_de_cta=sugestoes_cta,
+            nome_cliente=ai_result.get("nome_cliente")
         )
     except Exception as e:
         print(f"CRITICAL ERROR in handle_turn: {e}")
@@ -218,7 +461,9 @@ async def handle_turn(payload: TurnPayload, request: Request):
             handoff_triggered=False,
             setor_destino=None,
             prioridade="normal",
-            property_id=payload.property_code
+            property_id=payload.property_code,
+            sugestoes_de_cta=None,
+            nome_cliente=None
         )
 
 # End of API

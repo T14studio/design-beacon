@@ -1,4 +1,12 @@
+import sys
 import os
+from pathlib import Path
+
+# Adiciona o diretório atual ao sys.path para garantir que imports locais funcionem no Render
+current_dir = Path(__file__).parent
+if str(current_dir) not in sys.path:
+    sys.path.append(str(current_dir))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,10 +17,10 @@ load_dotenv()
 
 from supabase_service import SupabaseService
 from openai_service import OpenAIService
-from security import check_rate_limit # NEW: Security layer
-from fastapi import Request # NEW: For IP tracking
+from security import check_rate_limit 
+from fastapi import Request 
 
-app = FastAPI(title="Axis Backend", version="1.0.0")
+app = FastAPI(title="Axis Backend", version="1.0.1")
 
 cors_origins_raw = os.getenv("CORS_ORIGIN", "*")
 cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]

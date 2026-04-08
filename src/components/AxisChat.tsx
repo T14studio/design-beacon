@@ -45,14 +45,31 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
     localStorage.setItem("axis_chat_messages", JSON.stringify(messages));
   }, [messages]);
 
-  // URL do Webhook da Axis (n8n)
-  const AXIS_WEBHOOK_URL = (import.meta.env.VITE_AXIS_WEBHOOK_URL as string) || "https://n8n.botaxis.com/webhook/axis/v1/turn";
+  // URL do Webhook da Axis
+  const getWebhookUrl = () => {
+    const envUrl = import.meta.env.VITE_AXIS_WEBHOOK_URL;
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    
+    // Se temos uma URL no env e ela não é localhost (ou estamos localmente), usamos ela.
+    if (envUrl && (!envUrl.includes("localhost") || isLocal)) {
+      return envUrl;
+    }
+    
+    // Fallback: se estivermos localmente, usamos o backend Python local.
+    // Caso contrário, usamos o fallback do n8n (que deve ser configurado no Netlify como VITE_AXIS_WEBHOOK_URL)
+    return isLocal 
+      ? "http://localhost:8000/axis/turn" 
+      : "https://n8n.botaxis.com/webhook/axis/v1/turn";
+  };
+
+  const AXIS_WEBHOOK_URL = getWebhookUrl();
 
   useEffect(() => {
     if (isOpen) {
       if (messages.length === 0 && !initialMessage) {
         setMessages([{ role: "assistant", content: "Olá! Sou a Axis, sua assistente virtual da Ética. Como posso ajudar você hoje?" }]);
       }
+      console.log("[AxisChat] Endpoint:", AXIS_WEBHOOK_URL);
     }
   }, [isOpen]);
 
@@ -107,13 +124,18 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         property_code: propertyContext ? propertyContext.id : null
       };
 
+      console.log("[AxisChat] Sending payload to:", AXIS_WEBHOOK_URL);
+
       const response = await fetch(AXIS_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Falha na comunicação com a Axis");
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Erro desconhecido");
+        throw new Error(`Falha na comunicação com a Axis (${response.status}): ${errorText}`);
+      }
 
       const data = await response.json();
       
@@ -144,9 +166,18 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         toast.success("Atendimento encaminhado para nossa equipe!");
       }
 
-    } catch (error) {
-      console.error("Axis Error:", error);
-      setMessages((prev) => [...prev, { role: "assistant", content: "Ops! Tive um problema de conexão. Poderia tentar novamente?" }]);
+    } catch (error: any) {
+      console.error("Axis Error Details:", error);
+      const isProduction = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+      
+      let errorMessage = "Ops! Tive um problema de conexão. Poderia tentar novamente?";
+      
+      // Mostrar erro mais detalhado em desenvolvimento
+      if (!isProduction) {
+        errorMessage = `Erro de conexão: ${error.message || "Verifique se o backend está rodando."}`;
+      }
+      
+      setMessages((prev) => [...prev, { role: "assistant", content: errorMessage }]);
     } finally {
       setIsLoading(false);
     }

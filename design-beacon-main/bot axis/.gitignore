@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# API specific
+api/__pycache__/
+api/venv/
+api/.env
+
+# Logs and testing
+*.log
+api/*.txt
+!api/README.md
+!api/requirements.txt
+api/test_out*.txt
+api/test_results.md
+api/memory_retest_results.md
+
+# OS
+.DS_Store
+Thumbs.db
+.vscode/
+*.code-workspace

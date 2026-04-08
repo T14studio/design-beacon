@@ -14,11 +14,14 @@ from fastapi import Request # NEW: For IP tracking
 
 app = FastAPI(title="Axis Backend", version="1.0.0")
 
+cors_origins_raw = os.getenv("CORS_ORIGIN", "*")
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("CORS_ORIGIN", "http://localhost:8080")], # Defaults to dev port, not wildcard
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"], # Restrict methods
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 

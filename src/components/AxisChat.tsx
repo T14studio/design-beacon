@@ -56,10 +56,10 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
     }
     
     // Fallback: se estivermos localmente, usamos o backend Python local.
-    // Caso contrário, usamos o fallback do n8n (que deve ser configurado no Netlify como VITE_AXIS_WEBHOOK_URL)
+    // Caso contrário, usamos o novo backend no Render (que deve ser configurado no Netlify como VITE_AXIS_WEBHOOK_URL)
     return isLocal 
       ? "http://localhost:8000/axis/turn" 
-      : "https://n8n.botaxis.com/webhook/axis/v1/turn";
+      : "https://design-beacon.onrender.com/axis/turn";
   };
 
   const AXIS_WEBHOOK_URL = getWebhookUrl();

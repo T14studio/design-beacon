@@ -33,6 +33,7 @@ api/*.txt
 api/*.log
 !api/README.md
 !api/requirements.txt
+!api/runtime.txt
 __pycache__/
 *.py[cod]
 *$py.class

@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: axis-backend
+    runtime: python
+    rootDir: api
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: RATELIMIT_USER_MAX
+        value: "10"
+      - key: RATELIMIT_USER_WINDOW
+        value: "60"
+      - key: RATELIMIT_IP_MAX
+        value: "30"
+      - key: RATELIMIT_IP_WINDOW
+        value: "60"

@@ -25,6 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"message": "Axis Backend API is running", "endpoints": ["/health", "/axis/turn"]}
+
+@app.get("/health")
+def health_check():
+    return {"status": "up", "api": "Axis Backend", "version": "1.0.0"}
+
 class TurnPayload(BaseModel):
     channel: str = "website"
     browser_user_id: str
@@ -205,6 +213,4 @@ async def handle_turn(payload: TurnPayload, request: Request):
             property_id=payload.property_code
         )
 
-@app.get("/health")
-def health_check():
-    return {"status": "up"}
+# End of API

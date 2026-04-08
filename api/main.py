@@ -9,8 +9,8 @@ if str(current_dir) not in sys.path:
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any, List
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -42,24 +42,24 @@ def health_check():
     return {"status": "up", "api": "Axis Backend", "version": "1.0.0"}
 
 class TurnPayload(BaseModel):
-    channel: str = "website"
-    browser_user_id: str
-    phone: Optional[str] = None
-    name: Optional[str] = None
-    message: str # No Pydantic length here to keep it simple, but we'll prune in service if needed
-    session_id: Optional[str] = None
-    optional_context: Optional[Dict[str, Any]] = None
-    property_code: Optional[str] = None
+    channel: str = Field(default="website")
+    browser_user_id: str = Field(...)
+    phone: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    message: str = Field(...)
+    session_id: Optional[str] = Field(default=None)
+    optional_context: Optional[Dict[str, Any]] = Field(default=None)
+    property_code: Optional[str] = Field(default=None)
 
 class TurnResponse(BaseModel):
-    status: str
-    session_id: str
-    reply: str
-    current_state: str
-    handoff_triggered: bool
-    setor_destino: Optional[str]
-    prioridade: Optional[str]
-    property_id: Optional[str]
+    status: str = Field(...)
+    session_id: str = Field(...)
+    reply: str = Field(...)
+    current_state: str = Field(...)
+    handoff_triggered: bool = Field(...)
+    setor_destino: Optional[str] = Field(default=None)
+    prioridade: Optional[str] = Field(default=None)
+    property_id: Optional[str] = Field(default=None)
     
 @app.post("/axis/turn", response_model=TurnResponse)
 async def handle_turn(payload: TurnPayload, request: Request):

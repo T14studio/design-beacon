@@ -21,16 +21,16 @@ import { getBackendBaseUrl } from "@/lib/api";
 import { getWhatsAppLink } from "@/lib/whatsapp";
 
 const BANK_LOGOS: Record<string, string> = {
-  caixa: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Caixa_Econ%C3%B4mica_Federal_logo.svg",
-  itau: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Banco_Ita%C3%BA_logo.svg",
-  bb: "https://upload.wikimedia.org/wikipedia/commons/0/06/Banco_do_Brasil_logo.svg",
-  bradesco: "https://upload.wikimedia.org/wikipedia/commons/9/97/Bradesco_logo.svg",
-  santander: "https://upload.wikimedia.org/wikipedia/commons/b/b8/Banco_Santander_Logotipo.svg",
-  inter: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Banco_Inter_logo_2022.svg",
-  nubank: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Nubank_logo_2021.svg",
-  btg: "https://upload.wikimedia.org/wikipedia/commons/1/14/BTG_Pactual_logo.svg",
-  sicredi: "https://upload.wikimedia.org/wikipedia/commons/3/35/Sicredi_logo.svg",
-  sicoob: "https://upload.wikimedia.org/wikipedia/commons/8/80/Sicoob_logo_novo.svg"
+  caixa: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23005CA9'/><text x='50' y='60' font-family='sans-serif' font-size='22' font-weight='900' fill='%23F39200' text-anchor='middle'>CAIXA</text></svg>",
+  itau: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23EC7000'/><text x='50' y='63' font-family='sans-serif' font-size='35' font-weight='900' fill='%230033A0' text-anchor='middle'>Itaú</text></svg>",
+  bb: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23F9DD16'/><text x='50' y='72' font-family='sans-serif' font-size='60' font-weight='900' fill='%230038A8' text-anchor='middle' letter-spacing='-4'>bb</text></svg>",
+  bradesco: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23CC092F'/><rect x='25' y='45' width='20' height='35' rx='5' fill='%23fff'/><rect x='55' y='20' width='20' height='60' rx='5' fill='%23fff'/></svg>",
+  santander: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23EC0000'/><text x='50' y='55' font-family='sans-serif' font-size='16' font-weight='bold' fill='%23fff' text-anchor='middle'>Santander</text></svg>",
+  inter: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FF7A00'/><text x='50' y='60' font-family='sans-serif' font-size='28' font-weight='800' fill='%23fff' text-anchor='middle'>inter</text></svg>",
+  nubank: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%238A05BE'/><text x='50' y='60' font-family='sans-serif' font-size='32' font-weight='600' fill='%23fff' text-anchor='middle'>nu</text></svg>",
+  btg: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23002b54'/><text x='50' y='63' font-family='sans-serif' font-size='35' font-weight='bold' fill='%23fff' text-anchor='middle'>BTG</text></svg>",
+  sicredi: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300B14F'/><text x='50' y='58' font-family='sans-serif' font-size='20' font-weight='800' fill='%23fff' text-anchor='middle'>Sicredi</text></svg>",
+  sicoob: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23003D4C'/><text x='50' y='58' font-family='sans-serif' font-size='22' font-weight='800' fill='%2300A79E' text-anchor='middle'>Sicoob</text></svg>"
 };
 
 const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWNhM2FmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDIwIDcgNCA3IDEyIDIiLz48bGluZSB4MT0iNiIgeTE9IjIyIiB4Mj0iNiIgeTI9IjExIi8+PGxpbmUgeDE9IjEwIiB5MT0iMjIiIHgyPSIxMCIgeTI9IjExIi8+PGxpbmUgeDE9IjE0IiB5MT0iMjIiIHgyPSIxNCIgeTI9IjExIi8+PGxpbmUgeDE9IjE4IiB5MT0iMjIiIHgyPSIxOCIgeTI9IjExIi8+PGxpbmUgeDE9IjIiIHkxPSIyMiIgeDI9IjIyIiB5Mj0iMjIiLz48L3N2Zz4=";

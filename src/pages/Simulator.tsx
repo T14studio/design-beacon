@@ -142,6 +142,18 @@ export function SimulatorContent() {
                     <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono">Amortização</span>
                     <span className="font-bold text-foreground text-xs">{selectedBank.amortizationSystems.join(" / ")}</span>
                 </div>
+                {selectedBank.programs && selectedBank.programs.length > 0 && (
+                  <div className="flex items-start justify-between gap-2 pt-1 border-t border-border/20">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono shrink-0">Modalidades</span>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {selectedBank.programs.map((prog) => (
+                        <span key={prog} className="text-[9px] font-mono font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">
+                          {prog}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Data source badge */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, Landmark, Info } from "lucide-react";
+import { Landmark, Info } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FinancingSimulator from "@/components/FinancingSimulator";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BankLogo } from "@/components/BankLogo";
 import { BANKS, getBankById, type BankConfig, type FinancingProgram } from "@/data/banks";
 import { useLocation } from "react-router-dom";
 import type { Property } from "@/data/properties";
@@ -102,19 +103,14 @@ export function SimulatorContent() {
                 {banks.map((b) => (
                   <SelectItem key={b.id} value={b.id} className="rounded-lg focus:bg-primary/10">
                     <div className="flex items-center gap-3">
-                        {b.logo ? (
-                          <>
-                            <img src={b.logo} alt={b.name} className="w-6 h-6 object-contain" onError={(e) => { e.currentTarget.style.display='none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-                            <div className={`hidden w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] uppercase bg-gradient-to-br ${b.ui.gradientFrom} ${b.ui.gradientTo} ${b.ui.textColor} border ${b.ui.borderColor}`}>
-                              {b.shortName.substring(0, 2)}
-                            </div>
-                          </>
-                        ) : (
-                          <div className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] uppercase bg-gradient-to-br ${b.ui.gradientFrom} ${b.ui.gradientTo} ${b.ui.textColor} border ${b.ui.borderColor}`}>
-                            {b.shortName.substring(0, 2)}
-                          </div>
-                        )}
-                        <span>{b.name}</span>
+                      <BankLogo
+                        bankId={b.id}
+                        name={b.name}
+                        shortName={b.shortName}
+                        logoUrl={b.logo}
+                        size="sm"
+                      />
+                      <span>{b.name}</span>
                     </div>
                   </SelectItem>
                 ))}
@@ -129,20 +125,13 @@ export function SimulatorContent() {
               className={`w-full rounded-2xl p-6 border transition-all duration-500 bg-gradient-to-r ${selectedBank.ui.gradientFrom} ${selectedBank.ui.gradientTo} ${selectedBank.ui.borderColor} shadow-lg`}
             >
               <div className="flex items-center gap-4 mb-4">
-                  {selectedBank.logo ? (
-                    <>
-                      <div className="w-12 h-12 flex flex-col items-center justify-center p-1 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
-                        <img src={selectedBank.logo} alt={selectedBank.name} className="w-full h-full object-contain drop-shadow-md" onError={(e) => { e.currentTarget.parentElement!.style.display='none'; e.currentTarget.parentElement!.nextElementSibling?.classList.remove('hidden'); e.currentTarget.parentElement!.nextElementSibling?.classList.add('flex'); }} />
-                      </div>
-                      <div className={`hidden w-12 h-12 rounded-xl items-center justify-center font-black text-lg tracking-widest bg-gradient-to-br from-background/80 to-background/40 ${selectedBank.ui.textColor} border ${selectedBank.ui.borderColor} shadow-sm backdrop-blur-sm`}>
-                        {selectedBank.shortName.substring(0, 2).toUpperCase()}
-                      </div>
-                    </>
-                  ) : (
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg tracking-widest bg-gradient-to-br from-background/80 to-background/40 ${selectedBank.ui.textColor} border ${selectedBank.ui.borderColor} shadow-sm backdrop-blur-sm`}>
-                      {selectedBank.shortName.substring(0, 2).toUpperCase()}
-                    </div>
-                  )}
+                <BankLogo
+                  bankId={selectedBank.id}
+                  name={selectedBank.name}
+                  shortName={selectedBank.shortName}
+                  logoUrl={selectedBank.logo}
+                  size="lg"
+                />
                 <div>
                   <p className="text-lg font-bold text-foreground">
                     {selectedBank.name}

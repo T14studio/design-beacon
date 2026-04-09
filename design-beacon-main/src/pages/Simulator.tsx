@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Landmark, Info } from "lucide-react";
+import { Building2, Landmark, Info } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FinancingSimulator from "@/components/FinancingSimulator";
@@ -14,12 +14,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BankLogo } from "@/components/BankLogo";
 import { BANKS, getBankById, type BankConfig, type FinancingProgram } from "@/data/banks";
 import { useLocation } from "react-router-dom";
 import type { Property } from "@/data/properties";
 import { getBackendBaseUrl } from "@/lib/api";
 import { getWhatsAppLink } from "@/lib/whatsapp";
+
+const BANK_LOGOS: Record<string, string> = {
+  caixa: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Caixa_Econ%C3%B4mica_Federal_logo.svg",
+  itau: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Banco_Ita%C3%BA_logo.svg",
+  bb: "https://upload.wikimedia.org/wikipedia/commons/0/06/Banco_do_Brasil_logo.svg",
+  bradesco: "https://upload.wikimedia.org/wikipedia/commons/9/97/Bradesco_logo.svg",
+  santander: "https://upload.wikimedia.org/wikipedia/commons/b/b8/Banco_Santander_Logotipo.svg",
+  inter: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Banco_Inter_logo_2022.svg",
+  nubank: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Nubank_logo_2021.svg",
+  btg: "https://upload.wikimedia.org/wikipedia/commons/1/14/BTG_Pactual_logo.svg",
+  sicredi: "https://upload.wikimedia.org/wikipedia/commons/3/35/Sicredi_logo.svg",
+  sicoob: "https://upload.wikimedia.org/wikipedia/commons/8/80/Sicoob_logo_novo.svg"
+};
+
+const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOWNhM2FmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIxMiAyIDIwIDcgNCA3IDEyIDIiLz48bGluZSB4MT0iNiIgeTE9IjIyIiB4Mj0iNiIgeTI9IjExIi8+PGxpbmUgeDE9IjEwIiB5MT0iMjIiIHgyPSIxMCIgeTI9IjExIi8+PGxpbmUgeDE9IjE0IiB5MT0iMjIiIHgyPSIxNCIgeTI9IjExIi8+PGxpbmUgeDE9IjE4IiB5MT0iMjIiIHgyPSIxOCIgeTI9IjExIi8+PGxpbmUgeDE9IjIiIHkxPSIyMiIgeDI9IjIyIiB5Mj0iMjIiLz48L3N2Zz4=";
 
 export function SimulatorContent() {
   const [selectedBankId, setSelectedBankId] = useState("caixa");
@@ -103,14 +117,15 @@ export function SimulatorContent() {
                 {banks.map((b) => (
                   <SelectItem key={b.id} value={b.id} className="rounded-lg focus:bg-primary/10">
                     <div className="flex items-center gap-3">
-                      <BankLogo
-                        bankId={b.id}
-                        name={b.name}
-                        shortName={b.shortName}
-                        logoUrl={b.logo}
-                        size="sm"
-                      />
-                      <span>{b.name}</span>
+                        <div className="w-6 h-6 flex items-center justify-center bg-white rounded-md shrink-0 border border-border/20 shadow-sm overflow-hidden">
+                          <img 
+                            src={BANK_LOGOS[b.id] || b.logo || DEFAULT_LOGO} 
+                            alt={b.name} 
+                            className="w-full h-full object-contain p-0.5" 
+                            onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} 
+                          />
+                        </div>
+                        <span>{b.name}</span>
                     </div>
                   </SelectItem>
                 ))}
@@ -125,13 +140,14 @@ export function SimulatorContent() {
               className={`w-full rounded-2xl p-6 border transition-all duration-500 bg-gradient-to-r ${selectedBank.ui.gradientFrom} ${selectedBank.ui.gradientTo} ${selectedBank.ui.borderColor} shadow-lg`}
             >
               <div className="flex items-center gap-4 mb-4">
-                <BankLogo
-                  bankId={selectedBank.id}
-                  name={selectedBank.name}
-                  shortName={selectedBank.shortName}
-                  logoUrl={selectedBank.logo}
-                  size="lg"
-                />
+                  <div className="w-14 h-14 flex items-center justify-center p-2 bg-white rounded-xl shadow-sm border border-white/30 shrink-0">
+                    <img 
+                      src={BANK_LOGOS[selectedBank.id] || selectedBank.logo || DEFAULT_LOGO} 
+                      alt={selectedBank.name} 
+                      className="w-full h-full object-contain" 
+                      onError={(e) => { e.currentTarget.src = DEFAULT_LOGO; }} 
+                    />
+                  </div>
                 <div>
                   <p className="text-lg font-bold text-foreground">
                     {selectedBank.name}

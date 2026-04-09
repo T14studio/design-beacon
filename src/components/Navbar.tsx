@@ -3,7 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
-import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "../config/constants";
 
 const navLinks = [
   { label: "Home", path: "/" },

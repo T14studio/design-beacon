@@ -6,7 +6,7 @@ import FinancingSimulator from "@/components/FinancingSimulator";
 import MarketIndicators from "@/components/MarketIndicators";
 import ScrollReveal from "@/components/ScrollReveal";
 import { toast } from "sonner";
-import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "../config/constants";
 import BackButton from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import {

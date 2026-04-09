@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo, lazy, Suspense, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "../config/constants";
 import { ArrowDown, ArrowRight, Star, TrendingUp, Home, Send, MapPin, Calculator, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import hero1 from "@/assets/hero-1.jpg";

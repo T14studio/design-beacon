@@ -62,7 +62,7 @@ export default function Footer() {
                 <div className="flex flex-col gap-2">
                   <span>Rua Alagoas, 396, Sala 908<br />Jardim dos Estados<br />Campo Grande — MS</span>
                   <span className="text-sm font-bold text-muted-foreground/60 uppercase tracking-widest">
-                    CRECI 12345-J
+                    CRECI 7903
                   </span>
                 </div>
               </li>
@@ -87,7 +87,7 @@ export default function Footer() {
       <div className="border-t border-border py-6 sm:py-8 px-4 sm:px-6 overflow-hidden">
         <p className="text-center text-[9px] sm:text-xs text-muted-foreground/60 tracking-wider sm:tracking-widest uppercase leading-relaxed max-w-sm sm:max-w-none mx-auto">
           © {new Date().getFullYear()} Ética Áxis Imobiliária<br className="sm:hidden" />
-          CRECI 12345-J — Desde 2015<br className="sm:hidden" />
+          CRECI 7903 — Desde 2015<br className="sm:hidden" />
           Todos os direitos reservados
         </p>
       </div>

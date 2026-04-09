@@ -475,16 +475,14 @@ async def simulate_financing(payload: SimulationPayload):
     return {"status": "ok", "result": result}
 
 
-# ── New Finance Routes (Aligned with Frontend) ──────────────────────────────
-
+# ── /finance/catalog — catálogo completo (bancos + programas) ─────────────────
+# NUNCA lança exceção: get_finance_catalog() tem fallback curado interno.
 @app.get("/finance/catalog")
-async def get_finance_catalog():
-    try:
-        return FinanceService.get_finance_catalog()
-    except Exception as e:
-        print(f"[/finance/catalog] error: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao carregar catálogo financeiro")
+async def get_finance_catalog_endpoint():
+    return FinanceService.get_finance_catalog()
 
+
+# ── /finance/simulate — simulação banco + programa ─────────────────────
 class FinanceSimulatePayload(BaseModel):
     bank_id: str
     program_id: str
@@ -496,12 +494,14 @@ class FinanceSimulatePayload(BaseModel):
 @app.post("/finance/simulate")
 async def post_finance_simulate(payload: FinanceSimulatePayload):
     try:
-        result = FinanceService.simulate(payload.dict())
-        return result
+        return FinanceService.simulate(payload.dict())
     except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        print(f"[/finance/simulate] error: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao processar simulação")
+        # Erros de negócio (banco inelegível, teto, entrada mínima etc.)
+        raise HTTPException(status_code=422, detail=str(ve))
+    except Exception as exc:
+        import sys
+        print(f"[/finance/simulate] erro inesperado: {exc}", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="Erro interno ao processar simulação.")
+
 
 # End of API

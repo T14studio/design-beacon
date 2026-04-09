@@ -76,6 +76,12 @@ export interface FinancingProgram {
   max_years: number;
   rate_discount_annual: number;
   applicable_modalities: string[];
+  /** Valor máximo do imóvel para o programa (null = sem teto) */
+  max_property_value?: number | null;
+  /** IDs dos bancos que operam este programa (null = todos) */
+  eligible_bank_ids?: string[] | null;
+  /** Notas adicionais do programa */
+  notes?: string;
 }
 
 export const BANKS: BankConfig[] = [

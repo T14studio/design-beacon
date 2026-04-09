@@ -3,7 +3,7 @@ import { MessageCircle, MessageSquareText } from "lucide-react";
 import AxisChat from "./AxisChat";
 import { useLocation } from "react-router-dom";
 import { properties } from "@/data/properties";
-import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "../config/constants";
 
 export default function WhatsAppButton() {
   const [isChatOpen, setIsChatOpen] = useState(false);

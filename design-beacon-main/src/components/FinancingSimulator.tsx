@@ -220,11 +220,23 @@ export default function FinancingSimulator({ bank, initialProperty, programs = [
               <span className="text-primary/60 ml-2">({bank.shortName})</span>
             )}
           </label>
-          <div className="mt-3 bg-background/40 rounded-lg p-3 border border-border/30">
+          <div className="mt-3 bg-background/40 rounded-lg p-3 border border-border/30 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Taxa definida pelo banco</span>
               <span className="text-sm font-bold text-foreground">{rate.toFixed(2)}% a.a.</span>
             </div>
+            {programs && programs.length > 0 && (
+              <div className="flex items-start justify-between gap-2 mt-2 pt-2 border-t border-border/10">
+                <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0">Opções Disponíveis</span>
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {programs.map((p) => (
+                    <span key={p.id} className="text-[9px] font-mono font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20">
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

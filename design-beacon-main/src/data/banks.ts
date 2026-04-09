@@ -92,6 +92,7 @@ export const BANKS: BankConfig[] = [
     notes: "Maior participação no mercado imobiliário brasileiro. Condições especiais para clientes com relacionamento.",
     dataSource: "PÚBLICA",
     sourceDetail: "Banco Central do Brasil — Ranking de Taxas de Juros (financiamento imobiliário PF)",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Caixa_Econ%C3%B4mica_Federal_logo.svg",
     ui: {
       gradientFrom: "from-blue-600/20",
       gradientTo: "to-blue-400/5",
@@ -113,6 +114,7 @@ export const BANKS: BankConfig[] = [
     notes: "Oferece simulação digital completa. Taxas variam conforme relacionamento e renda.",
     dataSource: "PÚBLICA",
     sourceDetail: "Banco Central do Brasil — Ranking de Taxas de Juros",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Banco_Ita%C3%BA_logo.svg",
     ui: {
       gradientFrom: "from-orange-600/20",
       gradientTo: "to-orange-400/5",
@@ -134,6 +136,7 @@ export const BANKS: BankConfig[] = [
     notes: "Condições diferenciadas para servidores públicos e correntistas.",
     dataSource: "PÚBLICA",
     sourceDetail: "Banco Central do Brasil — Ranking de Taxas de Juros",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/0/06/Banco_do_Brasil_logo.svg",
     ui: {
       gradientFrom: "from-yellow-600/20",
       gradientTo: "to-yellow-400/5",
@@ -155,6 +158,7 @@ export const BANKS: BankConfig[] = [
     notes: "Possibilidade de portabilidade com condições diferenciadas.",
     dataSource: "PÚBLICA",
     sourceDetail: "Banco Central do Brasil — Ranking de Taxas de Juros",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/9/97/Bradesco_logo.svg",
     ui: {
       gradientFrom: "from-rose-600/20",
       gradientTo: "to-rose-400/5",
@@ -198,6 +202,7 @@ export const BANKS: BankConfig[] = [
     notes: "Processo 100% digital. Entrada mínima de 20%. Sem tarifa de avaliação para clientes.",
     dataSource: "PÚBLICA",
     sourceDetail: "Comparadores públicos (MelhorTaxa, Canal do Crédito) — dados verificados em Mar/2026",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Banco_Inter_logo_2022.svg",
     ui: {
       gradientFrom: "from-orange-500/20",
       gradientTo: "to-amber-400/5",
@@ -241,6 +246,7 @@ export const BANKS: BankConfig[] = [
     notes: "Foco em clientes de alta renda e imóveis de maior valor. Análise personalizada.",
     dataSource: "FALLBACK",
     sourceDetail: "Estimativa baseada em ofertas públicas e press releases do BTG — Mar/2026",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/1/14/BTG_Pactual_logo.svg",
     ui: {
       gradientFrom: "from-sky-600/20",
       gradientTo: "to-cyan-400/5",
@@ -262,6 +268,7 @@ export const BANKS: BankConfig[] = [
     notes: "Cooperativa de crédito com taxas competitivas. Necessário ser associado.",
     dataSource: "PÚBLICA",
     sourceDetail: "Banco Central do Brasil — Ranking de Taxas de Juros (cooperativas de crédito)",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/3/35/Sicredi_logo.svg",
     ui: {
       gradientFrom: "from-green-600/20",
       gradientTo: "to-emerald-400/5",

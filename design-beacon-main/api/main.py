@@ -18,6 +18,7 @@ load_dotenv()
 from supabase_service import SupabaseService
 from openai_service import OpenAIService
 from economic_service import EconomicService
+from finance_service import FinanceService
 from security import check_rate_limit, check_contracts_rate_limit, sanitize_id, sanitize_text_input
 from fastapi import Request 
 import re
@@ -473,5 +474,34 @@ async def simulate_financing(payload: SimulationPayload):
         raise HTTPException(status_code=400, detail=result["error"])
     return {"status": "ok", "result": result}
 
+
+# ── New Finance Routes (Aligned with Frontend) ──────────────────────────────
+
+@app.get("/finance/catalog")
+async def get_finance_catalog():
+    try:
+        return FinanceService.get_finance_catalog()
+    except Exception as e:
+        print(f"[/finance/catalog] error: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao carregar catálogo financeiro")
+
+class FinanceSimulatePayload(BaseModel):
+    bank_id: str
+    program_id: str
+    amortization_system: str
+    property_value: float
+    down_payment: float
+    years: int
+
+@app.post("/finance/simulate")
+async def post_finance_simulate(payload: FinanceSimulatePayload):
+    try:
+        result = FinanceService.simulate(payload.dict())
+        return result
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        print(f"[/finance/simulate] error: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao processar simulação")
 
 # End of API

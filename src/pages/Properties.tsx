@@ -18,9 +18,37 @@ import { useSearchParams } from "react-router-dom";
 import { SimulatorContent } from "./Simulator";
 const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 
-const types = ["Todos", "Apartamento", "Casa", "Terreno", "Comercial"] as const;
-const locations = ["Todos", "Campo Grande", "Bonito"] as const;
-const neighborhoods = ["Todos", "Tiradentes", "Coronel Antonino", "Jardim Anache", "Jardim Seminário", "Centro", "Bonito"] as const;
+const types = [
+  "Todos",
+  "Apartamento",
+  "Área",
+  "Barracão",
+  "Casa",
+  "Casa em condomínio",
+  "Chácara",
+  "Cobertura",
+  "Empreendimento",
+  "Fazenda",
+  "Flat",
+  "Galpão",
+  "Imóvel comercial",
+  "Lançamento",
+  "Outro",
+  "Prédio",
+  "Sala comercial",
+  "Salão",
+  "Sobrado",
+  "Sobrado em condomínio",
+  "Terreno",
+  "Terreno comercial",
+  "Terreno em condomínio",
+  "Unidade",
+] as const;
+
+const locations = ["Todos", ...Array.from(new Set(properties.map(p => p.location))).filter(Boolean)];
+const neighborhoods = ["Todos", ...Array.from(new Set(properties.map(p => p.neighborhood))).filter(Boolean)];
+const streets = ["Todos", ...Array.from(new Set(properties.map(p => p.address))).filter(Boolean)];
+
 const priceRanges = [
   { label: "Qualquer valor", value: "all" },
   { label: "Até R$ 300 mil", value: "0-300000" },
@@ -30,6 +58,16 @@ const priceRanges = [
   { label: "R$ 1,5 mi — R$ 3 mi", value: "1500000-3000000" },
   { label: "Acima de R$ 3 mi", value: "3000000-999999999" },
 ];
+
+const rentPriceRanges = [
+  { label: "Qualquer valor", value: "all" },
+  { label: "Até R$ 1.500", value: "0-1500" },
+  { label: "R$ 1.500 — R$ 3.000", value: "1500-3000" },
+  { label: "R$ 3.000 — R$ 5.000", value: "3000-5000" },
+  { label: "R$ 5.000 — R$ 10.000", value: "5000-10000" },
+  { label: "Acima de R$ 10.000", value: "10000-999999999" },
+];
+
 const bedroomOptions = ["Todos", "1+", "2+", "3+", "4+"] as const;
 const bathroomOptions = ["Todos", "1+", "2+", "3+"] as const;
 const parkingOptions = ["Todos", "1+", "2+", "3+"] as const;
@@ -45,6 +83,7 @@ export default function Properties() {
   });
   const [locationFilter, setLocationFilter] = useState<string>("Todos");
   const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("Todos");
+  const [addressFilter, setAddressFilter] = useState<string>("Todos");
   const [priceRange, setPriceRange] = useState<string>("all");
   const [bedroomFilter, setBedroomFilter] = useState<string>("Todos");
   const [bathroomFilter, setBathroomFilter] = useState<string>("Todos");
@@ -62,6 +101,10 @@ export default function Properties() {
     if (isLancamento) setOnlyLaunches(true);
   }, [searchParams]);
 
+  useEffect(() => {
+    setPriceRange("all");
+  }, [modeFilter]);
+
   const filtered = useMemo(() => {
     return properties.filter((p) => {
       const typeMatch = typeFilter === "Todos" || p.type === typeFilter;
@@ -69,6 +112,7 @@ export default function Properties() {
       if (modeFilter !== "Todos" && p.mode !== modeFilter) return false;
       if (locationFilter !== "Todos" && p.location !== locationFilter) return false;
       if (neighborhoodFilter !== "Todos" && p.neighborhood !== neighborhoodFilter) return false;
+      if (addressFilter !== "Todos" && p.address !== addressFilter) return false;
       
       if (priceRange !== "all") {
         const [min, max] = priceRange.split("-").map(Number);
@@ -92,13 +136,14 @@ export default function Properties() {
 
       return true;
     });
-  }, [typeFilter, modeFilter, locationFilter, neighborhoodFilter, priceRange, bedroomFilter, bathroomFilter, parkingFilter, onlyLaunches]);
+  }, [typeFilter, modeFilter, locationFilter, neighborhoodFilter, addressFilter, priceRange, bedroomFilter, bathroomFilter, parkingFilter, onlyLaunches]);
 
   const clearFilters = () => {
     setTypeFilter("Todos");
     setModeFilter("Todos");
     setLocationFilter("Todos");
     setNeighborhoodFilter("Todos");
+    setAddressFilter("Todos");
     setPriceRange("all");
     setBedroomFilter("Todos");
     setBathroomFilter("Todos");
@@ -164,7 +209,7 @@ export default function Properties() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-6">
               {/* Modo Venda/Aluguel */}
               <div>
                 <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Venda / Aluguel</p>
@@ -172,7 +217,7 @@ export default function Properties() {
                   <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
                     <SelectValue placeholder="Venda / Aluguel" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
                     {modes.map((m) => (
                       <SelectItem key={m} value={m} className="rounded-lg focus:bg-primary/10">{m}</SelectItem>
                     ))}
@@ -186,9 +231,23 @@ export default function Properties() {
                   <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
                     <SelectValue placeholder="Tipo de imóvel" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
                     {types.map((t) => (
                       <SelectItem key={t} value={t} className="rounded-lg focus:bg-primary/10">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Faixa de valor */}
+              <div>
+                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Faixa de valor</p>
+                <Select value={priceRange} onValueChange={setPriceRange}>
+                  <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
+                    <SelectValue placeholder="Valor do imóvel" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
+                    {(modeFilter === "Locação" ? rentPriceRanges : priceRanges).map((r) => (
+                      <SelectItem key={r.value} value={r.value} className="rounded-lg focus:bg-primary/10">{r.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -200,30 +259,44 @@ export default function Properties() {
                   <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
                     <SelectValue placeholder="Cidade" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
                     {locations.map((l) => (
                       <SelectItem key={l} value={l} className="rounded-lg focus:bg-primary/10">{l}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              {/* Faixa de valor */}
+              {/* Bairro */}
               <div>
-                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Faixa de valor</p>
-                <Select value={priceRange} onValueChange={setPriceRange}>
+                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Bairro</p>
+                <Select value={neighborhoodFilter} onValueChange={setNeighborhoodFilter}>
                   <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30">
-                    <SelectValue placeholder="Faixa de valor" />
+                    <SelectValue placeholder="Bairro" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl">
-                    {priceRanges.map((r) => (
-                      <SelectItem key={r.value} value={r.value} className="rounded-lg focus:bg-primary/10">{r.label}</SelectItem>
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
+                    {neighborhoods.map((n) => (
+                      <SelectItem key={n} value={n} className="rounded-lg focus:bg-primary/10">{n}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5">
+              {/* Rua */}
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Rua</p>
+                <Select value={addressFilter} onValueChange={setAddressFilter}>
+                  <SelectTrigger className="rounded-full border-border/40 bg-background/60 text-sm h-13 px-6 focus:ring-primary/20 transition-all hover:bg-background/80 hover:border-primary/30 text-left overflow-hidden">
+                    <SelectValue placeholder="Rua" className="truncate text-ellipsis" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-border/50 bg-card/95 backdrop-blur-xl max-w-[280px] sm:max-w-md max-h-[300px]">
+                    {streets.map((s) => (
+                      <SelectItem key={s} value={s} className="rounded-lg focus:bg-primary/10 break-all">{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {/* Dormitórios */}
               <div>
                 <p className="text-[9px] font-mono tracking-[0.2em] uppercase text-primary/70 mb-2 font-bold ml-4">Dormitórios</p>
@@ -267,10 +340,10 @@ export default function Properties() {
                 </Select>
               </div>
               {/* Lançamentos */}
-              <div className="flex flex-col justify-end">
+              <div className="col-span-2 sm:col-span-1 flex flex-col justify-end">
                 <button
                   onClick={() => setOnlyLaunches(!onlyLaunches)}
-                  className={`h-13 rounded-full border text-sm font-bold tracking-wider uppercase flex items-center justify-center gap-2 transition-all duration-300 ${
+                  className={`h-13 rounded-full border text-[10px] sm:text-sm font-bold tracking-wider uppercase flex items-center justify-center gap-2 transition-all duration-300 ${
                     onlyLaunches
                       ? "bg-primary/15 border-primary/40 text-primary"
                       : "bg-background/60 border-border/40 text-muted-foreground hover:border-primary/30 hover:text-foreground"

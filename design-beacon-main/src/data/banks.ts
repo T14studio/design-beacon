@@ -56,6 +56,26 @@ export interface BankConfig {
     textColor: string;
     accentColor: string;
   };
+  /** Percentual máximo financiável */
+  maxFinancingPercent?: number;
+  /** Indexadores suportados */
+  indexers?: string[];
+  /** Fonte externa efetiva da taxa */
+  externalSource?: string;
+  /** Período externo de referência */
+  externalPeriodStart?: string;
+  externalPeriodEnd?: string;
+}
+
+export interface FinancingProgram {
+  id: string;
+  name: string;
+  description: string;
+  max_financing_percent: number;
+  min_down_payment_percent: number;
+  max_years: number;
+  rate_discount_annual: number;
+  applicable_modalities: string[];
 }
 
 export const BANKS: BankConfig[] = [

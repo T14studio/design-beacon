@@ -17,22 +17,46 @@ load_dotenv()
 
 from supabase_service import SupabaseService
 from openai_service import OpenAIService
-from security import check_rate_limit 
+from economic_service import EconomicService
+from security import check_rate_limit, check_contracts_rate_limit, sanitize_id, sanitize_text_input
 from fastapi import Request 
 import re
 
 app = FastAPI(title="Axis Backend", version="1.0.1")
 
-cors_origins_raw = os.getenv("CORS_ORIGIN", "*")
-cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]
+cors_origins_raw = os.getenv("CORS_ORIGIN", "")
+if not cors_origins_raw.strip() or cors_origins_raw.strip() == "*":
+    import sys as _sys
+    print("[SECURITY WARNING] CORS_ORIGIN nao configurado ou set to '*'. "
+          "Em producao, defina CORS_ORIGIN para o dominio do frontend.", file=_sys.stderr)
+    cors_origins_raw = cors_origins_raw or "*"
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+if not cors_origins:
+    cors_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+# ── Security Headers Middleware ─────────────────────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/")
 def read_root():
@@ -43,14 +67,14 @@ def health_check():
     return {"status": "up", "api": "Axis Backend", "version": "1.0.0"}
 
 class TurnPayload(BaseModel):
-    channel: str = Field(default="website")
-    browser_user_id: str = Field(...)
-    phone: Optional[str] = Field(default=None)
-    name: Optional[str] = Field(default=None)
-    message: str = Field(...)
-    session_id: Optional[str] = Field(default=None)
+    channel: str = Field(default="website", max_length=50)
+    browser_user_id: str = Field(..., min_length=1, max_length=128)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    name: Optional[str] = Field(default=None, max_length=120)
+    message: str = Field(..., min_length=1, max_length=2000)
+    session_id: Optional[str] = Field(default=None, max_length=128)
     optional_context: Optional[Dict[str, Any]] = Field(default=None)
-    property_code: Optional[str] = Field(default=None)
+    property_code: Optional[str] = Field(default=None, max_length=100)
 
 class TurnResponse(BaseModel):
     status: str = Field(...)
@@ -63,6 +87,7 @@ class TurnResponse(BaseModel):
     property_id: Optional[str] = Field(default=None)
     sugestoes_de_cta: Optional[List[str]] = Field(default=None)
     nome_cliente: Optional[str] = Field(default=None)
+    exibir_fotos_galeria: bool = Field(default=False)
 
 def _infer_name_from_message(message: str) -> Optional[str]:
     if not message:
@@ -78,22 +103,57 @@ def _infer_name_from_message(message: str) -> Optional[str]:
     }:
         return None
 
-    m = re.search(r"\b(meu nome (é|eh)|me chamo|sou)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'\- ]{1,30})\b", text, re.IGNORECASE)
+    m = re.search(r"\b(meu nome (é|eh|e)|me chamo|sou)\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'\- ]{1,30})\b", text, re.IGNORECASE)
     if m:
         name = re.sub(r"\s{2,}", " ", m.group(3).strip())
         return name[:1].upper() + name[1:]
 
     if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]{2,20}(\s+[A-Za-zÀ-ÖØ-öø-ÿ]{2,20})?", text):
         parts = text.split()
+        # EXCLUSION LIST: Never infer these as names
+        exclusions = {
+            "comprar", "compra", "venda", "locação", "locacao", "alugar", "visita",
+            "agendar", "proposta", "interesse", "fotos", "foto", "imagens", "imagem",
+            "quero", "gostaria", "preciso", "tenho", "sim", "não", "nao", "ok", "certo",
+            "sou", "meu", "minha", "seu", "sua", "este", "esse", "aquele", "ver",
+            "nome", "obrigado", "obrigada", "ótimo", "otimo", "tudo", "bem",
+            "boa", "bom", "tarde", "noite", "manhã", "manha", "financiar", "financiamento",
+            "comprei", "aluguei", "urgente", "boleto", "contrato", "documentação",
+            "rescisão", "rescisao", "segunda", "repasse", "extrato"
+        }
+        if any(p.lower() in exclusions for p in parts):
+            return None
         return " ".join([p[:1].upper() + p[1:].lower() for p in parts])
 
     return None
 
+def _detect_photo_intent(message: str) -> bool:
+    if not message:
+        return False
+    m = message.lower()
+    return any(k in m for k in [
+        "foto", "imagem", "imagens", "ver o imóvel", "ver esse imóvel",
+        "ver este imóvel", "mostrar as fotos"
+    ])
+
 def _route_department_from_message(message: str) -> Optional[str]:
     m = (message or "").lower()
-    financeiro = ["boleto", "2ª via", "2a via", "segunda via", "comprovante", "pagamento", "vencimento", "multa", "juros", "cobran", "atraso", "repasse", "extrato"]
-    administrativo = ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "manuten", "vazamento", "renova", "rescind", "rescis", "seguro", "fiança", "fianca", "fechamento de locação", "fechamento de locacao"]
-    comercial = ["comprar", "compra", "alugar", "loca", "visita", "agendar", "proposta", "financ", "simula", "vender", "anunciar", "avali", "interesse"]
+    financeiro = [
+        "boleto", "2ª via", "2a via", "segunda via", "comprovante", "pagamento",
+        "vencimento", "multa", "juros", "cobran", "atraso", "repasse", "extrato",
+        "imposto de renda", "ir ", "i.r.", "prestação de contas", "prestacao de contas"
+    ]
+    administrativo = [
+        "documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura",
+        "vistoria", "manuten", "vazamento", "renova", "rescind", "rescis", "seguro",
+        "fiança", "fianca", "fechamento de locação", "fechamento de locacao",
+        "quando vence", "prazo do contrato", "renovar contrato", "aditivo",
+        "urgente", "sem luz", "curto", "inund"
+    ]
+    comercial = [
+        "comprar", "compra", "alugar", "loca", "visita", "agendar", "proposta",
+        "financ", "simula", "vender", "anunciar", "avali", "interesse"
+    ]
 
     if any(k in m for k in financeiro):
         return "financeiro"
@@ -104,7 +164,7 @@ def _route_department_from_message(message: str) -> Optional[str]:
     return None
 
 class ClientContractsSearchPayload(BaseModel):
-    document: str = Field(..., description="CPF ou CNPJ do cliente (com ou sem máscara).")
+    document: str = Field(..., min_length=11, max_length=18, description="CPF ou CNPJ do cliente (com ou sem máscara).")
 
 class ClientContract(BaseModel):
     id: str = Field(...)
@@ -118,31 +178,54 @@ class ClientContractsSearchResponse(BaseModel):
     contracts: List[ClientContract] = Field(default_factory=list)
 
 @app.post("/client-area/contracts/search", response_model=ClientContractsSearchResponse)
-async def client_area_contracts_search(payload: ClientContractsSearchPayload):
+async def client_area_contracts_search(payload: ClientContractsSearchPayload, request: Request):
     try:
-        contracts = SupabaseService.search_contracts_by_document(payload.document, limit=20)
+        # ── Rate Limiting estrito: previne enumeração em massa de CPF/CNPJ ──────
+        client_ip = request.client.host if request.client else "unknown"
+        is_limited, limit_msg, retry_after = check_contracts_rate_limit(client_ip)
+        if is_limited:
+            raise HTTPException(
+                status_code=429,
+                detail=f"{limit_msg} Tente novamente em {retry_after} segundos.",
+                headers={"Retry-After": str(retry_after)}
+            )
+
+        contracts = SupabaseService.search_contracts_by_document(payload.document, limit=10)
         sanitized = []
         for c in contracts:
             if not c.get("id") or not c.get("contract_number"):
                 continue
-            sanitized.append(c)
+            # SECURITY: nunca retornar pdf_path (caminho interno de storage)
+            sanitized.append({
+                "id": c["id"],
+                "contract_number": c["contract_number"],
+                "pdf_url": c.get("pdf_url"),
+                "pdf_path": None,
+                "created_at": c.get("created_at"),
+            })
         return ClientContractsSearchResponse(status="ok", contracts=sanitized)
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"CRITICAL ERROR in client_area_contracts_search: {e}")
+        import sys
+        print(f"ERROR in client_area_contracts_search: type={type(e).__name__}", file=sys.stderr)
         return ClientContractsSearchResponse(status="error", contracts=[])
     
 @app.post("/axis/turn", response_model=TurnResponse)
 async def handle_turn(payload: TurnPayload, request: Request):
     try:
-        # ── 0. Rate Limiting Security Check ──────────────────────────────────────
-        # Proteção contra abuse/spam via IP e Browser User ID
+        # ── 0. Rate Limiting + Input Sanitization ────────────────────────────────
         client_ip = request.client.host if request.client else "unknown"
-        is_limited, limit_msg, retry_after = check_rate_limit(client_ip, payload.browser_user_id)
+        # Sanitiza browser_user_id antes de usar para rate limit e para repassar ao Supabase
+        browser_user_id_safe = sanitize_id(payload.browser_user_id)
+        if not browser_user_id_safe:
+            raise HTTPException(status_code=400, detail="browser_user_id inválido.")
+        is_limited, limit_msg, retry_after = check_rate_limit(client_ip, browser_user_id_safe)
         
         if is_limited:
             return TurnResponse(
                 status="rate_limited",
-                session_id=payload.session_id or "limited",
+                session_id=sanitize_id(payload.session_id or "") or "limited",
                 reply=f"{limit_msg} Por favor, tente novamente em {retry_after} segundos para evitar gastos excessivos da API.",
                 current_state="recepcao",
                 handoff_triggered=False,
@@ -153,16 +236,16 @@ async def handle_turn(payload: TurnPayload, request: Request):
 
         # ── 1. Get or Create Customer ────────────────────────────────────────────
         customer = SupabaseService.get_or_create_customer(
-            browser_user_id=payload.browser_user_id,
+            browser_user_id=browser_user_id_safe,
             channel=payload.channel
         )
         customer_id = customer.get("id", payload.browser_user_id)
 
         # ── 2. Get or Create Session ─────────────────────────────────────────────
         session = SupabaseService.get_or_create_session(
-            session_id=payload.session_id,
+            session_id=sanitize_id(payload.session_id or "") or None,
             customer_id=customer_id,
-            property_code=payload.property_code
+            property_code=sanitize_id(payload.property_code or "") or None
         )
         session_id = session.get("id")
         current_state = session.get("current_state", "recepcao")
@@ -252,7 +335,8 @@ async def handle_turn(payload: TurnPayload, request: Request):
         }
         
         # ── 9. Call OpenAI ────────────────────────────────────────────────────────
-        print(f"[AXIS] session={session_id} state={current_state} property={property_id} nome={dados_coletados.get('name')} msg={payload.message[:60]}")
+        # SECURITY: log sem dados identificadores do usuário (nome/conteúdo da mensagem)
+        print(f"[AXIS] session={session_id[:8]}... state={current_state} property={property_id} msg_len={len(payload.message)}")
         ai_result = await OpenAIService.process_turn(payload.message, history, context)
 
         # ── 10. Process output ────────────────────────────────────────────────────
@@ -263,38 +347,54 @@ async def handle_turn(payload: TurnPayload, request: Request):
         prioridade    = ai_result.get("prioridade", "normal")
         sugestoes_cta = ai_result.get("sugestoes_de_cta") or []
 
-        # Hard guarantee: se estiver em página de imóvel, materializar título/ref no texto
-        try:
-            ptitle = (contexto_imovel or {}).get("property_title")
-            pref = (contexto_imovel or {}).get("property_id") or property_id
-            if ptitle and ptitle not in reply:
-                prefix = f'Vi que você está olhando o imóvel "{ptitle}"'
-                if pref and pref != ptitle:
-                    prefix += f" (ref. {pref})"
-                prefix += ". "
-                reply = prefix + reply
-        except Exception:
-            pass
+        # OVERRIDE FORÇADO PARA INTENÇÕES CRÍTICAS (FOTOS E SETOR)
+        if _detect_photo_intent(payload.message):
+            ai_result["exibir_fotos_galeria"] = True
+            # Transforma a resposta da IA na confirmação visual de abertura da galeria
+            contexto_imovel_tit = contexto_imovel.get("property_title", "este imóvel")
+            reply = f"Claro! Aqui estão as imagens de {contexto_imovel_tit} para você avaliar."
+            
+        routed_force = _route_department_from_message(payload.message)
+        if routed_force:
+            setor_destino = routed_force
+            ai_result["setor_destino"] = routed_force
+            # Identificação de urgência se for administrativo
+            if routed_force == "administrativo" and any(k in (payload.message or "").lower() for k in ["urgente", "vazamento", "sem luz", "curto", "inund"]):
+                ai_result["prioridade"] = "alta"
+                prioridade = "alta"
+            
+            # Se a IA não gerou CTAs relevantes ou estamos forçando o setor
+            if routed_force == "financeiro" and ("Consultar repasse" not in sugestoes_cta and "Solicitar segunda via" not in sugestoes_cta):
+                sugestoes_cta = ["Solicitar segunda via", "Enviar comprovante", "Consultar repasse", "Falar com financeiro"]
+            elif routed_force == "administrativo" and ("Acompanhar manutenção" not in sugestoes_cta and "Enviar documentos" not in sugestoes_cta):
+                sugestoes_cta = ["Enviar documentos", "Descrever problema", "Acompanhar manutenção", "Falar com administrativo"]
+            elif routed_force == "comercial" and ("Agendar visita" not in sugestoes_cta and "Fazer simulação" not in sugestoes_cta):
+                sugestoes_cta = ["Agendar visita", "Fazer simulação", "Falar com especialista", "Fazer proposta"]
+            
+            ai_result["sugestoes_de_cta"] = sugestoes_cta
+
+        # Anti-loop guard: if name is known but state regressed to 'recepcao', advance it
+        nome_final = ai_result.get("nome_cliente") or dados_coletados.get("name")
+        if nome_final and new_state == "recepcao":
+            new_state = "qualificacao"
+            ai_result["etapa_da_conversa"] = "qualificacao"
 
         if dados_coletados.get("name") and not ai_result.get("nome_cliente"):
             ai_result["nome_cliente"] = dados_coletados["name"]
 
-        if not setor_destino:
-            routed = _route_department_from_message(payload.message)
-            if routed:
-                setor_destino = routed
-                ai_result["setor_destino"] = routed
-                if routed == "administrativo" and any(k in (payload.message or "").lower() for k in ["urgente", "vazamento", "sem luz", "curto", "inund"]):
-                    ai_result["prioridade"] = "alta"
-                    prioridade = "alta"
-                if not sugestoes_cta:
-                    if routed == "financeiro":
-                        sugestoes_cta = ["Solicitar segunda via", "Enviar comprovante", "Consultar repasse", "Falar com financeiro"]
-                    elif routed == "administrativo":
-                        sugestoes_cta = ["Enviar documentos", "Descrever problema", "Acompanhar manutenção", "Falar com administrativo"]
-                    elif routed == "comercial":
-                        sugestoes_cta = ["Agendar visita", "Fazer simulação", "Falar com especialista"]
-                    ai_result["sugestoes_de_cta"] = sugestoes_cta
+        # Atualizar accumulated_state com os novos resultados da AI para preservar a memória inteira!
+        if ai_result.get("nome_cliente"): accumulated_state["nome_cliente"] = ai_result["nome_cliente"]
+        if ai_result.get("setor_destino"): accumulated_state["setor_provavel"] = ai_result["setor_destino"]
+        if ai_result.get("imovel_ou_contrato_relacionado"): accumulated_state["imovel_ref"] = ai_result["imovel_ou_contrato_relacionado"]
+        if ai_result.get("intencao_principal"): accumulated_state["objetivo_atual"] = ai_result["intencao_principal"]
+        if ai_result.get("proxima_acao"): accumulated_state["proxima_acao"] = ai_result["proxima_acao"]
+        if ai_result.get("estagio_da_jornada") and ai_result["estagio_da_jornada"] != "nao_identificado":
+            accumulated_state["estagio_jornada"] = ai_result["estagio_da_jornada"]
+        
+        # Coloca o accumulated inteiro no ai_result param pra enviar pro Supabase
+        ai_result["_accumulated_merge"] = accumulated_state
+
+
         
         # ── 11. Save outgoing assistant message ───────────────────────────────────
         SupabaseService.save_message(session_id, "assistant", reply, metadata=ai_result)
@@ -306,17 +406,23 @@ async def handle_turn(payload: TurnPayload, request: Request):
         if handed_off:
             SupabaseService.create_handoff_ticket(session_id, ai_result)
 
+        # Normalize internal manutencao_prioritaria => administrativo externally
+        setor_externo = setor_destino
+        if setor_externo == "manutencao_prioritaria":
+            setor_externo = "administrativo"
+
         return TurnResponse(
             status="ok",
             session_id=session_id,
             reply=reply,
             current_state=new_state,
             handoff_triggered=handed_off,
-            setor_destino=setor_destino,
+            setor_destino=setor_externo,
             prioridade=prioridade,
             property_id=property_id,
             sugestoes_de_cta=sugestoes_cta,
-            nome_cliente=ai_result.get("nome_cliente")
+            nome_cliente=nome_final,
+            exibir_fotos_galeria=ai_result.get("exibir_fotos_galeria", False)
         )
     except Exception as e:
         print(f"CRITICAL ERROR in handle_turn: {e}")
@@ -332,5 +438,89 @@ async def handle_turn(payload: TurnPayload, request: Request):
             sugestoes_de_cta=None,
             nome_cliente=None
         )
+
+# ═══════════════════════════════════════════════════════════════
+# ECONOMIC INDICATORS — /indicators
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/indicators")
+async def get_indicators():
+    """
+    Retorna indicadores econômicos em tempo real.
+    Fontes: AwesomeAPI (câmbio) + Banco Central SGS (Selic, IPCA, TR, CDI).
+    Cache de 5 minutos. Fallback estático em caso de falha.
+    """
+    try:
+        data = await EconomicService.get_indicators()
+        return {"status": "ok", "data": data}
+    except Exception as e:
+        print(f"[/indicators] error: {e}")
+        return {
+            "status": "fallback",
+            "data": {
+                "usd": {"value": "R$ 5,79", "change": "--", "up": True, "isLive": False},
+                "eur": {"value": "R$ 6,32", "change": "--", "up": True, "isLive": False},
+                "selic": {"value": "14,75%", "change": "0,0%", "up": False, "isLive": False},
+                "ipca": {"value": "5,48%", "change": "+0,1%", "up": True, "isLive": False},
+                "tr": {"value": "0,09%", "change": "0,0%", "up": False, "isLive": False},
+                "cdi": {"value": "14,65%", "change": "0,0%", "up": False, "isLive": False},
+                "fetched_at": None,
+            }
+        }
+
+
+# ═══════════════════════════════════════════════════════════════
+# FINANCING — /financing/banks
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/financing/banks")
+async def get_financing_banks():
+    """
+    Retorna lista de bancos com taxas atualizadas.
+    Tenta enriquecer com dados do Ranking BCB.
+    Cache de 5 minutos. Fallback para dados internos.
+    """
+    try:
+        data = await EconomicService.get_bank_rates()
+        return {"status": "ok", **data}
+    except Exception as e:
+        print(f"[/financing/banks] error: {e}")
+        from economic_service import BANKS_BASE
+        import time
+        return {
+            "status": "fallback",
+            "banks": BANKS_BASE,
+            "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
+
+# ═══════════════════════════════════════════════════════════════
+# FINANCING — /financing/simulate
+# ═══════════════════════════════════════════════════════════════
+
+class SimulationPayload(BaseModel):
+    property_value: float = Field(..., gt=0)
+    down_payment: float = Field(..., ge=0)
+    years: int = Field(..., gt=0, le=35)
+    annual_rate: float = Field(..., ge=0)
+    amortization: str = Field(default="SAC", pattern="^(SAC|PRICE)$")
+
+@app.post("/financing/simulate")
+async def simulate_financing(payload: SimulationPayload):
+    """
+    Calcula simulação de financiamento pelo backend.
+    Suporta SAC e PRICE. Retorna parcelas, total pago e juros.
+    """
+    result = EconomicService.calculate(
+        property_value=payload.property_value,
+        down_payment=payload.down_payment,
+        years=payload.years,
+        annual_rate=payload.annual_rate,
+        amortization=payload.amortization,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"status": "ok", "result": result}
+
 
 # End of API

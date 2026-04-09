@@ -57,7 +57,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: DollarSign,
     dataSource: "PÚBLICA",
     sourceDetail: "AwesomeAPI — economia.awesomeapi.com.br (dados públicos, atualização em tempo real)",
-    apiEndpoint: "https://economia.awesomeapi.com.br/json/last/USD-BRL",
+    apiEndpoint: "/market/indicators",
     description: "Cotação do dólar comercial (compra)",
   },
   {
@@ -70,7 +70,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: Euro,
     dataSource: "PÚBLICA",
     sourceDetail: "AwesomeAPI — economia.awesomeapi.com.br (dados públicos, atualização em tempo real)",
-    apiEndpoint: "https://economia.awesomeapi.com.br/json/last/EUR-BRL",
+    apiEndpoint: "/market/indicators",
     description: "Cotação do euro comercial (compra)",
   },
   {
@@ -83,7 +83,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: Percent,
     dataSource: "OFICIAL",
     sourceDetail: "Banco Central do Brasil — API SGS série 432 (taxa Selic meta)",
-    apiEndpoint: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json",
+    apiEndpoint: "/market/indicators",
     description: "Taxa básica de juros da economia brasileira (meta definida pelo Copom)",
   },
   {
@@ -96,7 +96,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: BarChart3,
     dataSource: "OFICIAL",
     sourceDetail: "Banco Central do Brasil — API SGS série 13522 (IPCA acumulado 12 meses)",
-    apiEndpoint: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json",
+    apiEndpoint: "/market/indicators",
     description: "Índice de Preços ao Consumidor Amplo — inflação oficial do Brasil (acum. 12 meses)",
   },
   {
@@ -109,7 +109,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: Activity,
     dataSource: "OFICIAL",
     sourceDetail: "Banco Central do Brasil — API SGS série 226 (Taxa Referencial mensal)",
-    apiEndpoint: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.226/dados/ultimos/1?formato=json",
+    apiEndpoint: "/market/indicators",
     description: "Taxa Referencial — usada como indexador em financiamentos imobiliários",
   },
   {
@@ -122,7 +122,7 @@ export const INDICATORS_CONFIG: IndicatorConfig[] = [
     icon: TrendingUp,
     dataSource: "OFICIAL",
     sourceDetail: "Banco Central do Brasil — API SGS série 4389 (CDI acumulado anualizado)",
-    apiEndpoint: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json",
+    apiEndpoint: "/market/indicators",
     description: "Certificado de Depósito Interbancário — taxa de referência para investimentos",
   },
 ];

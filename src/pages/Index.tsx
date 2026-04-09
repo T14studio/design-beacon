@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo, lazy, Suspense, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
 import { ArrowDown, ArrowRight, Star, TrendingUp, Home, Send, MapPin, Calculator, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import hero1 from "@/assets/hero-1.jpg";
@@ -311,7 +312,7 @@ export default function Index() {
                     <Link to="/simulador" className="w-full flex justify-center items-center">Simular Agora</Link>
                   </Button>
                   <Button asChild variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 px-6 sm:px-10 h-12 sm:h-14 md:h-16 rounded-full font-bold tracking-widest uppercase text-[10px] sm:text-[11px] w-full sm:w-auto flex justify-center items-center">
-                    <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Nosso canal está sendo preparado. Utilize formulários de contato no site por enquanto." }); }} className="w-full flex justify-center items-center text-center">
+                    <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`} target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                       Falar com especialista
                     </a>
                   </Button>
@@ -458,7 +459,7 @@ export default function Index() {
                   ))}
                 </ul>
                 <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-8 sm:px-12 h-12 sm:h-14 md:h-16 shadow-2xl rounded-full btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-full sm:w-auto flex items-center justify-center">
-                   <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Por favor, utilize os demais canais do site para anunciar seu imóvel." }); }} className="w-full flex justify-center items-center text-center">
+                   <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Olá! Quero anunciar meu imóvel através da Ética Áxis.')}`} target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                       Quero anunciar meu imóvel
                    </a>
                 </Button>
@@ -646,7 +647,7 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8">
               <Button asChild className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-10 md:px-12 h-12 sm:h-14 md:h-16 text-[10px] sm:text-[11px] tracking-widest uppercase w-full sm:w-auto shadow-2xl rounded-full btn-shine shadow-primary/30 flex items-center justify-center">
-                <a href="#" onClick={(e) => { e.preventDefault(); toast.info("WhatsApp Oficial em configuração", { description: "Nosso canal oficial no Brasil está em desenvolvimento." }); }} className="w-full flex justify-center items-center text-center">
+                <a href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`} target="_blank" rel="noopener noreferrer" className="w-full flex justify-center items-center text-center">
                   Falar com especialista no WhatsApp
                 </a>
               </Button>

@@ -33,7 +33,6 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(() => {
     try {
       return localStorage.getItem("axis_session_id");
@@ -47,6 +46,12 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
   useEffect(() => {
     localStorage.setItem("axis_chat_messages", JSON.stringify(messages));
   }, [messages]);
+
+  // Auto-scroll to bottom anchor
+  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
   // URL do Webhook da Axis
   const getWebhookUrl = () => {
@@ -67,6 +72,13 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
 
   const AXIS_WEBHOOK_URL = getWebhookUrl();
 
+  // SECURITY: Limite de caracteres alinhado com o backend (max_length=2000)
+  const MAX_MESSAGE_LENGTH = 2000;
+
+  // Apenas loga o endpoint em ambiente de desenvolvimento
+  const isDev = typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
   const propertyImages = useMemo<string[]>(() => {
     const imgs = propertyContext?.images;
     return Array.isArray(imgs) ? imgs.filter(Boolean) : [];
@@ -81,44 +93,57 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
       t.includes("mais fotos") ||
       t.includes("ver fotos") ||
       t.includes("me mostra as fotos") ||
+      t.includes("me mostra") ||
       t.includes("mostrar as fotos") ||
       t.includes("tem mais imagens") ||
       t.includes("mais imagens") ||
+      t.includes("ver imagens") ||
       t.includes("quero ver esse imóvel melhor") ||
-      t.includes("quero ver este imóvel melhor")
+      t.includes("quero ver este imóvel melhor") ||
+      t.includes("ver fotos extras") ||
+      t.includes("foto extras") ||
+      t.includes("imagens do imóvel") ||
+      t.includes("fotos do imóvel")
     );
   };
 
+  // initial greeting + reset scroll
   useEffect(() => {
     if (isOpen) {
       if (messages.length === 0 && !initialMessage) {
-        setMessages([{ role: "assistant", content: "Olá! Sou a Axis, sua assistente virtual da Ética. Como posso ajudar você hoje?" }]);
+        const savedName = localStorage.getItem("axis_user_name");
+        const greeting = savedName
+          ? `Olá, ${savedName}! Sou a Axis, assistente virtual da Ética. Em que posso ajudar?`
+          : "Olá! Sou a Axis, assistente virtual da Ética. Como posso ajudar você?";
+        setMessages([{ role: "assistant", content: greeting }]);
       }
-      console.log("[AxisChat] Endpoint:", AXIS_WEBHOOK_URL);
+      // SECURITY: endpoint apenas em dev
+      if (isDev) console.log("[AxisChat] Endpoint:", AXIS_WEBHOOK_URL);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "auto" });
   }, [isOpen]);
 
   // Keep track of last initialMessage we sent to avoid duplicates
-  const prevInitialMessage = useRef(initialMessage);
-  
+  const prevInitialMessage = useRef<string | undefined>(undefined);
+
   useEffect(() => {
-    if (isOpen && initialMessage && initialMessage !== prevInitialMessage.current) {
+    if (!isOpen) return;
+    if (!initialMessage) return;
+    // Only send the initialMessage if it's new and hasn't been sent yet
+    if (initialMessage === prevInitialMessage.current) return;
+    // Don't auto-send if we already have conversation history (avoids duplicate on re-open)
+    if (messages.length > 1) {
       prevInitialMessage.current = initialMessage;
-      handleSendMessage(initialMessage);
-    } else if (isOpen && initialMessage && messages.length === 0) {
-      // First time opening with an initial message
-      prevInitialMessage.current = initialMessage;
-      handleSendMessage(initialMessage);
+      return;
     }
+    prevInitialMessage.current = initialMessage;
+    handleSendMessage(initialMessage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialMessage]);
-
-  // initial greeting is handled above
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
 
   const showPropertyGallery = (originText?: string) => {
     if (!propertyContext || propertyImages.length === 0) return false;
@@ -138,37 +163,44 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
   };
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim()) return;
-
-    // Fotos do imóvel: resolve visualmente no site (não responde genérico em texto)
-    if (isPhotoIntent(text) && propertyImages.length > 0) {
-      const userMessage: Message = { role: "user", content: text };
-      setMessages((prev) => [...prev, userMessage]);
-      setInput("");
-      showPropertyGallery(text);
+    // SECURITY: Limpa e valida a mensagem antes de qualquer processamento
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
+      toast.error(`Mensagem muito longa. Limite: ${MAX_MESSAGE_LENGTH} caracteres.`);
       return;
     }
 
-    const userMessage: Message = { role: "user", content: text };
+    // Photo intent is now handled by the backend to keep history.
+    // We just send the message normally.
+
+    const userMessage: Message = { role: "user", content: trimmed };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
-      const browser_user_id = localStorage.getItem("axis_user_id") || "web-user-" + Math.random().toString(36).substring(2, 11);
-      if (!localStorage.getItem("axis_user_id")) {
+      // SECURITY: browser_user_id gerado com apenas caracteres seguros
+      const storedId = localStorage.getItem("axis_user_id");
+      const browser_user_id = storedId && /^[a-zA-Z0-9\-_]{4,128}$/.test(storedId)
+        ? storedId
+        : "web-" + crypto.randomUUID().replace(/-/g, "").substring(0, 16);
+      if (!localStorage.getItem("axis_user_id") || browser_user_id !== storedId) {
         localStorage.setItem("axis_user_id", browser_user_id);
       }
+
+      // SECURITY: page_url cortada para não vazar query strings com dados sensíveis
+      const safePageUrl = window.location.origin + window.location.pathname;
 
       const payload = {
         channel: "website",
         browser_user_id: browser_user_id,
         phone: localStorage.getItem("axis_user_phone") || null,
         name: localStorage.getItem("axis_user_name") || null,
-        message: text,
+        message: trimmed,
         session_id: sessionId,
         optional_context: propertyContext ? {
-          page_url: window.location.href,
+          page_url: safePageUrl,
           property_id: propertyContext.id,
           property_title: propertyContext.title,
           property_mode: propertyContext.mode,
@@ -179,7 +211,8 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         property_code: propertyContext ? propertyContext.id : null
       };
 
-      console.log("[AxisChat] Sending payload to:", AXIS_WEBHOOK_URL);
+      // SECURITY: apenas loga em dev
+      if (isDev) console.log("[AxisChat] Sending payload to:", AXIS_WEBHOOK_URL);
 
       const response = await fetch(AXIS_WEBHOOK_URL, {
         method: "POST",
@@ -198,6 +231,7 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         setSessionId(data.session_id);
         localStorage.setItem("axis_session_id", data.session_id);
       }
+      // Persist name as soon as the API returns it
       if (data.nome_cliente && typeof data.nome_cliente === "string") {
         localStorage.setItem("axis_user_name", data.nome_cliente);
       }
@@ -213,6 +247,13 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         role: "assistant", 
         content: botMsgContent 
       };
+      // Trigger gallery if backend requested
+      if (data.exibir_fotos_galeria && propertyImages.length > 0) {
+        botMessage.type = "gallery";
+        botMessage.images = propertyImages;
+        setIsGalleryOpen(true);
+      }
+      
       // Store suggestions for UI
       if (data.sugestoes_de_cta) {
         (botMessage as any).ctaSuggestions = data.sugestoes_de_cta;
@@ -225,17 +266,12 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
       }
 
     } catch (error: any) {
-      console.error("Axis Error Details:", error);
-      const isProduction = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
-      
-      let errorMessage = "Ops! Tive um problema de conexão. Poderia tentar novamente?";
-      
-      // Mostrar erro mais detalhado em desenvolvimento
-      if (!isProduction) {
-        errorMessage = `Erro de conexão: ${error.message || "Verifique se o backend está rodando."}`;
-      }
-      
-      setMessages((prev) => [...prev, { role: "assistant", content: errorMessage }]);
+      // SECURITY: nunca expor detalhes de erro em produção
+      if (isDev) console.error("Axis Error Details:", error);
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Ops! Tive um problema de conexão. Poderia tentar novamente?"
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +300,7 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4 bg-background/50">
-        <div className="space-y-4" ref={scrollRef}>
+        <div className="space-y-4">
           {messages.map((msg, i) => (
             <div key={i} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")}>
               <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", 
@@ -338,6 +374,8 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
               </div>
             </div>
           )}
+          {/* Bottom anchor for auto-scroll */}
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 
@@ -349,9 +387,10 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
         <Input 
           placeholder="Digite sua mensagem..."
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
           className="bg-background h-10 rounded-xl"
           disabled={isLoading}
+          maxLength={MAX_MESSAGE_LENGTH}
         />
         <Button 
           type="submit" 

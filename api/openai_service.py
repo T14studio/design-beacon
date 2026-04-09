@@ -33,9 +33,10 @@ def load_prompts():
                     "handoff_recomendado": {"type": "boolean"},
                     "setor_destino": {"type": "string"},
                     "proxima_acao": {"type": "string"},
-                    "resumo_do_caso": {"type": "string"}
+                    "resumo_do_caso": {"type": "string"},
+                    "exibir_fotos_galeria": {"type": "boolean"}
                 },
-                "required": ["message_to_user"]
+                "required": ["message_to_user", "exibir_fotos_galeria"]
             }
         }
 
@@ -55,23 +56,62 @@ class OpenAIService:
         # ── Inject accumulated session state (the state tracking anchor) ───────
         sessao = context.get("sessao_acumulada", {})
         dados = context.get("dados_coletados", {})
+        imovel_ctx = context.get("contexto_imovel", {}) or {}
         session_summary_parts = []
 
-        # Nome: try sessao first, then dados_coletados (from history scan)
+        # Nome: try sessao first, then dados_coletados (from history scan), then payload
         nome_efetivo = sessao.get("nome_cliente") or dados.get("name")
         if nome_efetivo:
-            session_summary_parts.append(f"Nome do cliente: {nome_efetivo}")
+            session_summary_parts.append(
+                f"✅ NOME DO CLIENTE JÁ CONHECIDO: {nome_efetivo} — É PROIBIDO PERGUNTAR O NOME NOVAMENTE. Vá direto para a próxima etapa (descobrir o problema, agendar horário, etc)."
+            )
+
         if sessao.get("objetivo_atual"):
             session_summary_parts.append(f"Objetivo identificado: {sessao['objetivo_atual']}")
         if sessao.get("setor_provavel"):
             session_summary_parts.append(f"Setor provável: {sessao['setor_provavel']}")
-        # Imóvel: try sessao first, then contexto_imovel
-        imovel_efetivo = sessao.get("imovel_ref") or context.get("contexto_imovel", {}).get("property_id")
-        imovel_title = context.get("contexto_imovel", {}).get("property_title")
-        if imovel_efetivo:
-            session_summary_parts.append(f"Imóvel em contexto (Código/Ref): {imovel_efetivo}")
-        if imovel_title:
-            session_summary_parts.append(f"Título do Imóvel: {imovel_title}")
+
+        # Imóvel: build rich context line
+        imovel_id = sessao.get("imovel_ref") or imovel_ctx.get("property_id")
+        imovel_title = imovel_ctx.get("property_title")
+        imovel_mode = imovel_ctx.get("property_mode")
+        imovel_type = imovel_ctx.get("property_type") or imovel_ctx.get("tipo")
+        imovel_price = imovel_ctx.get("price")
+        imovel_address = imovel_ctx.get("address")
+
+        if imovel_id or imovel_title:
+            imovel_line_parts = []
+            if imovel_title:
+                imovel_line_parts.append(f'Título: "{imovel_title}"')
+            if imovel_id and imovel_id != imovel_title:
+                imovel_line_parts.append(f"Ref/Código: {imovel_id}")
+            if imovel_mode:
+                imovel_line_parts.append(f"Finalidade: {imovel_mode}")
+            if imovel_type:
+                imovel_line_parts.append(f"Tipo: {imovel_type}")
+            if imovel_price:
+                imovel_line_parts.append(f"Preço: {imovel_price}")
+            if imovel_address:
+                imovel_line_parts.append(f"Endereço: {imovel_address}")
+            session_summary_parts.append(
+                "✅ IMÓVEL EM CONTEXTO (use o título na resposta de forma natural, não diga 'este imóvel' anonimamente): "
+                + " | ".join(imovel_line_parts)
+            )
+            
+            m_norm = str(imovel_mode or "").lower()
+            if "vend" in m_norm:
+                session_summary_parts.append(
+                    "⚠️ ATENÇÃO: Este imóvel é SOMENTE PARA VENDA. É totalmente PROIBIDO perguntar se o cliente busca 'compra ou locação'. Vá direto ao ponto (ex: agendar visita, tirar dúvida da compra)."
+                )
+            elif "loca" in m_norm or "alug" in m_norm:
+                session_summary_parts.append(
+                    "⚠️ ATENÇÃO: Este imóvel é SOMENTE PARA LOCAÇÃO. É totalmente PROIBIDO perguntar se o cliente busca 'compra ou locação'. Vá direto ao ponto (ex: agendar visita, garantias)."
+                )
+            
+            session_summary_parts.append(
+                "📸 FOTOS DISPONÍVEIS: Se o cliente pedir para 'ver opções', 'ver fotos', 'mostrar imagens', você DEVE setar 'exibir_fotos_galeria': true e responder: 'Claro, estou abrindo a galeria de fotos do imóvel para você analisar!'. NUNCA diga que não consegue mostrar."
+            )
+
         if sessao.get("estagio_jornada"):
             session_summary_parts.append(f"Estágio da jornada: {sessao['estagio_jornada']}")
         if sessao.get("proxima_acao"):
@@ -79,11 +119,12 @@ class OpenAIService:
 
         if session_summary_parts:
             session_memory_block = (
-                "\n\n## MEMÓRIA DE SESSÃO PERSISTIDA (PRIORIDADE MÁXIMA)\n"
-                "As informações abaixo foram coletadas e gravadas em turnos anteriores desta sessão. "
-                "Você DEVE usá-las para continuar a conversa de onde parou. "
-                "NUNCA reinicie do zero se esta seção estiver preenchida. "
-                f"Se o nome do cliente estiver disponível, USE-O na sua resposta agora.\n"
+                "\n\n## MEMÓRIA DE SESSÃO PERSISTIDA (PRIORIDADE MÁXIMA — LEIA ANTES DE RESPONDER)\n"
+                "As informações abaixo foram coletadas nesta sessão. "
+                "CONTINUE a conversa de onde parou. "
+                "NÃO reinicie. NÃO repita saudação. "
+                "NÃO pergunte o que já está listado aqui. "
+                "FALE de forma natural e direto ao ponto.\n\n"
                 + "\n".join(f"- {p}" for p in session_summary_parts)
             )
             prompt += session_memory_block
@@ -113,6 +154,11 @@ class OpenAIService:
             
             result_text = response.choices[0].message.content
             result = json.loads(result_text)
+            
+            # Anti-loop state override
+            if result.get("etapa_da_conversa") == "recepcao" and nome_efetivo:
+                result["etapa_da_conversa"] = "qualificacao"
+            
             print(f"[OpenAI] etapa={result.get('etapa_da_conversa')} setor={result.get('setor_destino')} nome={result.get('nome_cliente')} handoff={result.get('handoff_recomendado')}")
             return result
         except Exception as e:
@@ -120,7 +166,7 @@ class OpenAIService:
 
             def _detect(msg: str) -> dict:
                 m = (msg or "").lower()
-                if any(k in m for k in ["repasse", "extrato", "prestação de contas", "prestacao de contas"]):
+                if any(k in m for k in ["repasse", "extrato", "prestação de contas", "prestacao de contas", "imposto de renda", "ir ", "i.r."]):
                     return {"setor": "financeiro", "intencao": "repasse", "sub": "extrato" if "extrato" in m else None, "repasse_flag": True}
                 if any(k in m for k in ["segunda via", "2a via", "2ª via", "boleto", "comprovante", "pagamento", "vencimento", "multa", "juros", "cobran", "atraso"]):
                     return {"setor": "financeiro", "intencao": "boleto", "sub": "segunda_via" if ("via" in m or "boleto" in m) else None}
@@ -128,7 +174,7 @@ class OpenAIService:
                 if any(k in m for k in ["vazamento", "sem luz", "curto", "inund", "urgente", "manuten", "quebrou", "vazando"]):
                     urgente = any(k in m for k in ["urgente", "inund", "curto", "sem luz", "vazamento"])
                     return {"setor": "administrativo", "intencao": "manutencao", "sub": "urgente" if urgente else None, "urgente": urgente}
-                if any(k in m for k in ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "renova", "rescind", "rescisao", "rescisão", "seguro", "fiança", "fianca"]):
+                if any(k in m for k in ["documenta", "contrato", "análise cadastral", "analise cadastral", "assinatura", "vistoria", "renova", "rescind", "rescisao", "rescisão", "seguro", "fiança", "fianca", "quando vence", "prazo do contrato", "aditivo"]):
                     return {"setor": "administrativo", "intencao": "contrato", "sub": "documentacao" if "document" in m else None}
 
                 if any(k in m for k in ["comprar", "compra", "alugar", "locaç", "locacao", "visita", "agendar", "proposta", "financ", "simula", "vender", "anunciar", "avali", "interesse"]):
@@ -154,7 +200,8 @@ class OpenAIService:
                 modo = imovel.get("property_mode")
                 tipo = imovel.get("property_type") or imovel.get("tipo")
 
-                saud = f"Perfeito, {nome}! " if nome else ""
+                saud = ""  # Removido prefixo repetitivo "Perfeito, {nome}!"
+                
                 imovel_line = ""
                 if titulo or pid:
                     imovel_line = f'Vi que você está na página do imóvel "{titulo}"' if titulo else f"Vi que você está na página do imóvel de referência {pid}"
@@ -167,13 +214,13 @@ class OpenAIService:
                 if intent.get("setor") == "financeiro":
                     if intent.get("intencao") == "repasse":
                         return (
-                            f"{saud}Entendi. Para eu direcionar corretamente: você é proprietário (recebe repasse) ou locatário (paga boleto)? Me diga também o mês/período que você quer consultar.",
+                            f"{imovel_line}Entendi. Para eu direcionar corretamente: você é proprietário (recebe repasse) ou locatário (paga boleto)? Me diga também o mês/período que você quer consultar.",
                             ["Consultar repasse", "Solicitar extrato", "Falar com financeiro"],
                             "qualificacao",
                             "financeiro",
                         )
                     return (
-                        f"{saud}Entendi. Você precisa de boleto/2ª via ou enviar comprovante? Me informe o mês de referência e, se tiver, o número do contrato/imóvel para eu encaminhar ao financeiro.",
+                        f"{imovel_line}Entendi. Você precisa de boleto/2ª via ou enviar comprovante? Me informe o mês de referência e, se tiver, o número do contrato/imóvel para eu encaminhar ao financeiro.",
                         ["Solicitar segunda via", "Enviar comprovante", "Falar com financeiro"],
                         "qualificacao",
                         "financeiro",
@@ -183,19 +230,19 @@ class OpenAIService:
                     if intent.get("intencao") == "manutencao":
                         if intent.get("urgente"):
                             return (
-                                f"{saud}Entendi que é URGENTE. Há risco imediato (inundação, curto-circuito, choque) e qual o imóvel/contrato? Me descreva em 1 frase o que está acontecendo agora.",
+                                f"{imovel_line}Entendi que é URGENTE. Há risco imediato (inundação, curto-circuito, choque) e qual o imóvel/contrato? Me descreva em 1 frase o que está acontecendo agora.",
                                 ["Descrever Urgência", "Acompanhar manutenção", "Falar com administrativo"],
                                 "encaminhamento",
                                 "manutencao_prioritaria",
                             )
                         return (
-                            f"{saud}Certo. Para eu acionar o administrativo/manutenção: qual o imóvel/contrato e qual o problema? Se tiver fotos, me diga que você tem que eu te oriento.",
+                            f"{imovel_line}Certo. Para eu acionar o administrativo/manutenção: qual o imóvel/contrato e qual o problema? Se tiver fotos, me diga que você tem que eu te oriento.",
                             ["Descrever problema", "Acompanhar manutenção", "Falar com administrativo"],
                             "qualificacao",
                             "administrativo",
                         )
                     return (
-                        f"{saud}Entendi. Para eu encaminhar ao administrativo com precisão, me diga qual contrato/imóvel está relacionado e se é documentação, assinatura, renovação ou rescisão.",
+                        f"{imovel_line}Entendi. Para eu encaminhar ao administrativo com precisão, me diga qual contrato/imóvel está relacionado e se é documentação, assinatura, renovação ou rescisão.",
                         ["Informar contrato", "Enviar documentos", "Falar com administrativo"],
                         "qualificacao",
                         "administrativo",
@@ -204,7 +251,7 @@ class OpenAIService:
                 if intent.get("setor") == "comercial":
                     if intent.get("intencao") == "financiamento":
                         return (
-                            f"{saud}{imovel_line}Ótimo — financiar é um caminho comum. Você prefere fazer uma simulação agora ou falar com um especialista para planejar as melhores condições?" + (
+                            f"{imovel_line}Ótimo — financiar é um caminho comum. Você prefere fazer uma simulação agora ou falar com um especialista para planejar as melhores condições?" + (
                                 f" Como este imóvel é para {modo.lower()}, já sigo por esse caminho." if modo in ("Venda", "Locação") else ""
                             ),
                             ["Fazer simulação", "Falar com especialista", "Agendar visita"],
@@ -213,36 +260,44 @@ class OpenAIService:
                         )
                     if intent.get("intencao") == "agendar_visita":
                         return (
-                            f"{saud}{imovel_line}Perfeito. Qual dia e horário você prefere para a visita? Se quiser, me diga também seu WhatsApp para confirmação.",
+                            f"{imovel_line}Perfeito. Qual dia e horário você prefere para a visita? Se quiser, me diga também seu WhatsApp para confirmação.",
                             ["Agendar agora", "Ver outros horários", "Especialista comercial"],
                             "qualificacao",
                             "comercial",
                         )
                     if intent.get("intencao") in ("comprar_imovel", "alugar_imovel", "imovel_especifico"):
-                        if modo == "Venda":
+                        # Normalize mode for safer comparison (handles encoding issues)
+                        m_norm = (str(modo or "")).lower()
+                        if "vend" in m_norm:
                             suffix = "Como este imóvel é para venda, posso te ajudar a agendar visita ou preparar uma proposta."
-                        elif modo == "Locação":
+                        elif "loca" in m_norm:
                             suffix = "Como este imóvel é para locação, posso te ajudar com visita e documentação para fechamento."
                         else:
                             suffix = "Você busca compra ou locação?"
                         return (
-                            f"{saud}{imovel_line}{suffix} Qual é seu objetivo agora: agendar visita, receber mais detalhes ou fazer proposta?",
+                            f"{imovel_line}{suffix} Qual é seu objetivo agora: agendar visita, receber mais detalhes ou fazer proposta?",
                             ["Agendar visita", "Mais detalhes", "Fazer proposta", "Ver fotos extras"],
                             "conducao",
                             "comercial",
                         )
                     if intent.get("intencao") == "anunciar_imovel":
                         return (
-                            f"{saud}Perfeito. Para começarmos uma avaliação: qual o tipo do imóvel, bairro/endereço e o valor que você tem em mente? Se tiver fotos, isso ajuda bastante.",
+                            f"Perfeito. Para começarmos uma avaliação: qual o tipo do imóvel, bairro/endereço e o valor que você tem em mente? Se tiver fotos, isso ajuda bastante.",
                             ["Avaliação profissional", "Especialista de captação"],
                             "qualificacao",
                             "comercial",
                         )
 
+                # Resposta caso nenhuma intent seja acionada
+                if nome and context.get("current_state") == "recepcao":
+                    msg = f"Perfeito, {nome}! Me conte em poucas palavras o que você precisa."
+                else:
+                    msg = f"Me conte em poucas palavras o que você precisa (compra/locação, contrato/documento, ou boletos)."
+
                 return (
-                    f"{saud}Me conte em poucas palavras o que você precisa (compra/locação, contrato/documentos/manutenção, ou boletos/repasses).",
+                    msg,
                     ["Comprar", "Locação", "Boletos", "Repasses", "Documentação"],
-                    context.get("current_state", "recepcao"),
+                    "qualificacao" if nome else context.get("current_state", "recepcao"),
                     None,
                 )
 
@@ -280,5 +335,6 @@ class OpenAIService:
                 "necessidade_de_feedback_ou_finalizacao": False,
                 "origem_do_contexto_do_imovel": "site_pagina_imovel" if (context.get("contexto_imovel") or {}).get("property_id") else None,
                 "contexto_do_site_identificado": bool((context.get("contexto_imovel") or {}).get("property_id")),
+                "exibir_fotos_galeria": any(k in (user_message or "").lower() for k in ["foto", "imagem", "imagens", "ver o imóvel", "ver esse imóvel"]),
                 "sugestoes_de_cta": ctas
             }

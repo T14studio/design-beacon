@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
+import { WHATSAPP_NUMBER, WHATSAPP_DEFAULT_MESSAGE } from "@/config/constants";
 
 const navLinks = [
   { label: "Home", path: "/" },
@@ -51,7 +52,7 @@ export default function Navbar() {
         {/* Center: CRECI (Mobile Only) */}
         <div className="flex md:hidden items-center justify-center flex-1 px-3">
           <span className="text-[10px] sm:text-[11px] font-mono tracking-widest font-bold text-muted-foreground/60 uppercase mt-[2px] whitespace-nowrap">
-            CRECI 12345-J
+            CRECI 7903
           </span>
         </div>
 
@@ -61,10 +62,10 @@ export default function Navbar() {
           {/* Desktop Only Right Nav */}
           <div className="hidden md:flex items-center gap-4 lg:gap-6">
             <span className="text-[11px] lg:text-[12px] font-mono tracking-widest font-bold text-muted-foreground/60 uppercase mt-1">
-              CRECI 12345-J
+              CRECI 7903
             </span>
             <a
-              href="mailto:comercial@eticaimoveisbr.com.br?subject=Falar com especialista"
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase text-primary border border-primary/20 hover:border-primary/40 px-4 lg:px-5 py-2.5 lg:py-3 rounded-full transition-all duration-500 bg-primary/5 btn-shine"
@@ -124,7 +125,7 @@ export default function Navbar() {
           </a>
 
           <a
-            href="mailto:comercial@eticaimoveisbr.com.br?subject=Falar com especialista"
+            href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_DEFAULT_MESSAGE)}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}

@@ -4,22 +4,28 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { calculateFinancing, formatCurrency } from "@/lib/financing";
-import type { BankConfig, AmortizationSystem } from "@/data/banks";
+import type { BankConfig, AmortizationSystem, FinancingProgram } from "@/data/banks";
 import type { Property } from "@/data/properties";
+import { getBackendBaseUrl } from "@/lib/api";
+import { toast } from "sonner";
 
 interface FinancingSimulatorProps {
   /** Banco selecionado atualmente (opcional — usa defaults se não fornecido) */
   bank?: BankConfig;
   /** Propriedade vinculada à simulação (se houver) */
   initialProperty?: Property;
+  /** Programas/modalidades recebidos do backend */
+  programs?: FinancingProgram[];
 }
 
-export default function FinancingSimulator({ bank, initialProperty }: FinancingSimulatorProps) {
+export default function FinancingSimulator({ bank, initialProperty, programs = [] }: FinancingSimulatorProps) {
   const [propertyValue, setPropertyValue] = useState(initialProperty?.price ?? 1000000);
   const [downPayment, setDownPayment] = useState(initialProperty?.price ? Math.ceil(initialProperty.price * (bank?.minDownPaymentPercent ?? 20) / 100) : 200000);
   const [years, setYears] = useState(bank?.maxYears ?? 30);
   const [amortization, setAmortization] = useState<AmortizationSystem>("SAC");
+  const [programId, setProgramId] = useState<string>(programs[0]?.id ?? "convencional");
   const [simulationResult, setSimulationResult] = useState<ReturnType<typeof calculateFinancing> | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Taxa vinda do banco selecionado ou default
   const rate = bank?.annualRate ?? 10.5;
@@ -45,7 +51,47 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
   }, [propertyValue, downPayment, effectiveYears, rate, effectiveAmortization, minDown]);
 
   const handleSimulate = () => {
-    setSimulationResult(computedResult);
+    void (async () => {
+      if (!bank) {
+        setSimulationResult(computedResult);
+        return;
+      }
+      setIsSimulating(true);
+      try {
+        const backendBase = getBackendBaseUrl();
+        const response = await fetch(`${backendBase}/finance/simulate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bank_id: bank.id,
+            program_id: programId,
+            amortization_system: effectiveAmortization,
+            property_value: propertyValue,
+            down_payment: Math.max(downPayment, minDown),
+            years: effectiveYears,
+          }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.detail || `Falha ao simular (${response.status})`);
+        }
+        const data = await response.json();
+        setSimulationResult({
+          financed: data.financed_value,
+          monthlyPayment: data.monthly_payment,
+          lastPayment: data.last_payment,
+          totalPaid: data.total_paid,
+          totalInterest: data.total_interest,
+          totalInstallments: data.months,
+          system: data.amortization_system,
+        });
+      } catch (error: any) {
+        toast.error(error?.message || "Não foi possível simular no backend.");
+        setSimulationResult(computedResult);
+      } finally {
+        setIsSimulating(false);
+      }
+    })();
   };
 
   const fmt = formatCurrency;
@@ -89,6 +135,24 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2 block">
+            Programa / Modalidade
+          </label>
+          <select
+            value={programId}
+            onChange={(e) => setProgramId(e.target.value)}
+            className="w-full bg-background border border-border rounded-md h-10 px-3 text-sm"
+          >
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            {programs.length === 0 && <option value="convencional">Convencional</option>}
+          </select>
+        </div>
+
         <div>
           <label className="text-[10px] font-mono tracking-widest uppercase text-muted-foreground mb-2 block">
             Valor do imóvel
@@ -167,8 +231,8 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
 
       {/* Botão de Simulação */}
       <div className="mt-10 flex justify-center border-t border-border/20 pt-8">
-        <Button onClick={handleSimulate} className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-12 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-[280px] max-w-full sm:w-auto">
-          Simular agora
+        <Button onClick={handleSimulate} disabled={isSimulating} className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-12 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-[280px] max-w-full sm:w-auto">
+          {isSimulating ? "Simulando..." : "Simular agora"}
         </Button>
       </div>
 

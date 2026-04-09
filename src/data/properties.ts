@@ -1,7 +1,7 @@
 export type Property = {
   id: string;
   title: string;
-  type: "Apartamento" | "Casa" | "Cobertura" | "Terreno" | "Comercial" | "Rural";
+  type: string;
   mode: "Venda" | "Locação";
   price: number;
   location: string;

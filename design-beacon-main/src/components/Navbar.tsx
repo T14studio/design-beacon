@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
+import { getWhatsAppLink } from "@/lib/whatsapp";
 
 const navLinks = [
   { label: "Home", path: "/" },
@@ -64,7 +65,7 @@ export default function Navbar() {
               CRECI 12345-J
             </span>
             <a
-              href="mailto:comercial@eticaimoveisbr.com.br?subject=Falar com especialista"
+              href={getWhatsAppLink("Olá! Quero falar com um especialista sobre imóveis.")}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase text-primary border border-primary/20 hover:border-primary/40 px-4 lg:px-5 py-2.5 lg:py-3 rounded-full transition-all duration-500 bg-primary/5 btn-shine"
@@ -74,14 +75,14 @@ export default function Navbar() {
               </svg>
               Especialista
             </a>
-            <a
-              href="/cliente"
+            <Link
+              to="/cliente"
               onClick={() => setOpen(false)}
               className="bg-primary hover:bg-primary/90 transition-colors text-primary-foreground text-[9px] lg:text-[10px] font-bold tracking-[0.2em] uppercase px-5 lg:px-8 py-2.5 lg:py-3.5 rounded-full select-none text-center flex items-center justify-center shadow-lg shadow-primary/20 btn-shine"
               title="Área do cliente"
             >
               Área do cliente
-            </a>
+            </Link>
           </div>
 
           {/* Mobile toggle */}
@@ -114,17 +115,17 @@ export default function Navbar() {
             </Link>
           ))}
           
-          <a
-            href="/cliente"
+          <Link
+            to="/cliente"
             onClick={() => setOpen(false)}
             className="text-xl sm:text-2xl font-light tracking-[0.2em] uppercase hover:text-primary transition-colors text-center pb-6 border-b border-border/50 select-none text-foreground"
             title="Área do cliente"
           >
             Área do cliente
-          </a>
+          </Link>
 
           <a
-            href="mailto:comercial@eticaimoveisbr.com.br?subject=Falar com especialista"
+            href={getWhatsAppLink("Olá! Quero falar com um especialista sobre imóveis.")}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}

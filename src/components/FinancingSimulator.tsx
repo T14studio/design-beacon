@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Calculator, ArrowDownUp } from "lucide-react";
+import { Calculator, ArrowDownUp, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
   const [amortization, setAmortization] = useState<AmortizationSystem>("SAC");
   const [simulationResult, setSimulationResult] = useState<ReturnType<typeof calculateFinancing> | null>(null);
 
+  const [isSimulating, setIsSimulating] = useState(false);
+
   // Taxa vinda do banco selecionado ou default
   const rate = bank?.annualRate ?? 10.5;
   const maxYears = bank?.maxYears ?? 35;
@@ -34,18 +36,58 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
   // Garantir que o prazo não exceda o máximo do banco
   const effectiveYears = Math.min(years, maxYears);
 
-  const computedResult = useMemo(() => {
-    return calculateFinancing({
-      propertyValue,
-      downPayment: Math.max(downPayment, minDown),
-      years: effectiveYears,
-      annualRate: rate,
-      amortizationSystem: effectiveAmortization,
-    });
-  }, [propertyValue, downPayment, effectiveYears, rate, effectiveAmortization, minDown]);
+  const handleSimulate = async () => {
+    setIsSimulating(true);
+    try {
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const backendUrl = isLocal ? "http://localhost:8000" : "https://design-beacon.onrender.com";
+      
+      const payload = {
+        property_value: propertyValue,
+        down_payment: Math.max(downPayment, minDown),
+        years: effectiveYears,
+        annual_rate: rate,
+        amortization: effectiveAmortization,
+      };
 
-  const handleSimulate = () => {
-    setSimulationResult(computedResult);
+      const res = await fetch(`${backendUrl}/financing/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error("Falha ao simular no backend");
+      }
+
+      const json = await res.json();
+      if (json.status === "ok" && json.result) {
+        // Mapeia snake_case do backend (API) para camelCase do frontend (SimulationResult esperado)
+        const mappedResult = {
+          financed: json.result.financed,
+          monthlyPayment: json.result.monthly_payment,
+          lastPayment: json.result.last_payment,
+          totalPaid: json.result.total_paid,
+          totalInterest: json.result.total_interest,
+          totalInstallments: json.result.total_installments,
+          system: json.result.system as AmortizationSystem,
+        };
+        setSimulationResult(mappedResult);
+      }
+    } catch (err) {
+      console.error(err);
+      // Fallback para a lib local caso o backend falhe, pra não quebrar a UX
+      const localResult = calculateFinancing({
+        propertyValue,
+        downPayment: Math.max(downPayment, minDown),
+        years: effectiveYears,
+        annualRate: rate,
+        amortizationSystem: effectiveAmortization,
+      });
+      setSimulationResult(localResult);
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   const fmt = formatCurrency;
@@ -167,8 +209,9 @@ export default function FinancingSimulator({ bank, initialProperty }: FinancingS
 
       {/* Botão de Simulação */}
       <div className="mt-10 flex justify-center border-t border-border/20 pt-8">
-        <Button onClick={handleSimulate} className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-12 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-[280px] max-w-full sm:w-auto">
-          Simular agora
+        <Button disabled={isSimulating} onClick={handleSimulate} className="bg-gold-gradient text-primary-foreground font-bold px-6 sm:px-12 h-12 sm:h-14 md:h-16 rounded-full hover:opacity-90 transition-all shadow-xl btn-shine uppercase tracking-widest text-[10px] sm:text-[11px] w-[280px] max-w-full sm:w-auto">
+          {isSimulating ? <Loader2 size={16} className="animate-spin mr-2 inline" /> : null}
+          {isSimulating ? "Simulando..." : "Simular agora"}
         </Button>
       </div>
 

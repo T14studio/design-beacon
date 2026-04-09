@@ -34,6 +34,7 @@
       "anuncio_apto_ou_nao",
       "repasse_ou_extrato_solicitado",
       "origem_do_contexto_do_imovel",
+      "exibir_fotos_galeria",
       "sugestoes_de_cta"
     ],
     "additionalProperties": false,
@@ -173,6 +174,10 @@
       "contexto_do_site_identificado": {
         "type": "boolean",
         "description": "True se a Axis tiver detectado que o usuário veio de uma página específica do site e aproveitou o contexto."
+      },
+      "exibir_fotos_galeria": {
+        "type": "boolean",
+        "description": "True se o usuário pediu especificamente para ver fotos ou imagens do imóvel atual."
       }
     }
   }

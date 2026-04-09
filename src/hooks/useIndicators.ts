@@ -4,12 +4,11 @@
  * ============================================================
  *
  * Hook para buscar e atualizar indicadores econômicos em tempo real.
- * Busca dados de APIs oficiais (BCB) e públicas (AwesomeAPI).
- * Cai para fallbacks estáticos em caso de erro.
+ * Requisito: Agora utiliza EXCLUSIVAMENTE o backend para buscar os dados.
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { INDICATORS_CONFIG, getInitialIndicators, type IndicatorData } from "@/data/indicators";
+import { getInitialIndicators, type IndicatorData } from "@/data/indicators";
 
 const REFRESH_INTERVAL = 300_000; // 5 minutos
 
@@ -20,82 +19,36 @@ export function useIndicators() {
 
   const fetchIndicators = useCallback(async () => {
     try {
-      const updated = [...getInitialIndicators()];
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const backendUrl = isLocal ? "http://localhost:8000" : "https://design-beacon.onrender.com";
 
-      // --- Moedas via AwesomeAPI ---
-      try {
-        const res = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL");
-        const data = await res.json();
+      const res = await fetch(`${backendUrl}/indicators`);
+      if (!res.ok) throw new Error("Falha ao buscar indicadores do backend");
 
-        if (data.USDBRL) {
-          const usdIdx = updated.findIndex((i) => i.id === "usd");
-          if (usdIdx !== -1) {
-            const pct = parseFloat(data.USDBRL.pctChange);
-            updated[usdIdx] = {
-              ...updated[usdIdx],
-              value: `R$ ${parseFloat(data.USDBRL.bid).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-              change: `${pct > 0 ? "+" : ""}${data.USDBRL.pctChange}%`,
-              up: pct > 0,
-              isLive: true,
+      const json = await res.json();
+
+      if (json.status === "ok" || json.status === "fallback") {
+        const backendData = json.data;
+        const updated = getInitialIndicators().map((ind) => {
+          const backendInd = backendData[ind.id];
+          if (backendInd) {
+            return {
+              ...ind,
+              value: backendInd.value,
+              change: backendInd.change,
+              up: backendInd.up,
+              isLive: backendInd.isLive,
+              dataSource: backendInd.isLive ? "REAL-TIME API" : "FALLBACK",
             };
           }
-        }
+          return ind;
+        });
 
-        if (data.EURBRL) {
-          const eurIdx = updated.findIndex((i) => i.id === "eur");
-          if (eurIdx !== -1) {
-            const pct = parseFloat(data.EURBRL.pctChange);
-            updated[eurIdx] = {
-              ...updated[eurIdx],
-              value: `R$ ${parseFloat(data.EURBRL.bid).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-              change: `${pct > 0 ? "+" : ""}${data.EURBRL.pctChange}%`,
-              up: pct > 0,
-              isLive: true,
-            };
-          }
-        }
-      } catch (err) {
-        console.warn("[Indicadores] AwesomeAPI indisponível, usando fallback para câmbio:", err);
+        setIndicators(updated);
+        setLastUpdate(new Date(backendData.fetched_at || Date.now()));
       }
-
-      // --- BCB APIs (Selic, IPCA, TR, CDI) ---
-      const bcbIndicators = [
-        { id: "selic", suffix: "%" },
-        { id: "ipca", suffix: "%" },
-        { id: "tr", suffix: "%" },
-        { id: "cdi", suffix: "%" },
-      ];
-
-      for (const bcb of bcbIndicators) {
-        const cfg = INDICATORS_CONFIG.find((c) => c.id === bcb.id);
-        if (!cfg?.apiEndpoint) continue;
-
-        try {
-          const res = await fetch(cfg.apiEndpoint);
-          const data = await res.json();
-
-          if (Array.isArray(data) && data.length > 0) {
-            const latest = data[data.length - 1];
-            const val = parseFloat(latest.valor);
-            const idx = updated.findIndex((i) => i.id === bcb.id);
-
-            if (idx !== -1 && !isNaN(val)) {
-              updated[idx] = {
-                ...updated[idx],
-                value: `${val.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
-                isLive: true,
-              };
-            }
-          }
-        } catch (err) {
-          console.warn(`[Indicadores] BCB API indisponível para ${bcb.id}, usando fallback:`, err);
-        }
-      }
-
-      setIndicators(updated);
-      setLastUpdate(new Date());
     } catch (error) {
-      console.error("[Indicadores] Erro geral ao buscar indicadores:", error);
+      console.error("[Indicadores] Erro ao consumir API do backend:", error);
     } finally {
       setLoading(false);
     }

@@ -1,10 +1,22 @@
 import os
 import requests
 import uuid
+import re
 from typing import List, Dict, Any, Optional
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+
+def _safe_param(value: str) -> str:
+    """
+    Sanitiza valores controlados pelo cliente antes de inseri-los em
+    parâmetros de URL da API REST do Supabase.
+    Mantém apenas caracteres alfanuméricos, hífens e underscores.
+    Isto previne injeção de parâmetros (ex: browser_user_id=eq.X&select=*).
+    """
+    return re.sub(r"[^a-zA-Z0-9\-_]", "", str(value or ""))[:256]
+
 
 def get_headers():
     return {
@@ -19,7 +31,8 @@ class SupabaseService:
     def get_or_create_customer(browser_user_id: str, channel: str = "website") -> dict:
         if not SUPABASE_URL or not SUPABASE_KEY: return {"id": "mock-customer-id"}
         try:
-            url = f"{SUPABASE_URL}/rest/v1/customers?browser_user_id=eq.{browser_user_id}"
+            safe_uid = _safe_param(browser_user_id)
+            url = f"{SUPABASE_URL}/rest/v1/customers?browser_user_id=eq.{safe_uid}"
             res = requests.get(url, headers=get_headers())
             data = res.json()
             if data and len(data) > 0:
@@ -40,15 +53,17 @@ class SupabaseService:
         if not SUPABASE_URL: return {"id": session_id or str(uuid.uuid4()), "current_state": "recepcao"}
         try:
             if session_id:
+                safe_sid = _safe_param(session_id)
+                safe_cid = _safe_param(customer_id)
                 # SECURITY: Always filter by customer_id to prevent session hijacking
-                url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{session_id}&customer_id=eq.{customer_id}"
+                url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{safe_sid}&customer_id=eq.{safe_cid}"
                 res = requests.get(url, headers=get_headers())
                 data = res.json()
                 if data and len(data) > 0:
                     existing = data[0]
-                    # If property_code is provided and different, update it
                     if property_code and existing.get("property_id") != property_code:
-                        patch_url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{session_id}"
+                        safe_sid2 = _safe_param(session_id)
+                        patch_url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{safe_sid2}"
                         requests.patch(patch_url, headers=get_headers(), json={"property_id": property_code})
                         existing["property_id"] = property_code
                     return existing
@@ -92,25 +107,24 @@ class SupabaseService:
             # Build full patch (columns may or may not exist in DB)
             full_patch = {"current_state": new_state}
 
-            # Accumulated state as JSON blob — works even without extra columns
-            accumulated = {}
-            if ai_result.get("nome_cliente"):
-                accumulated["nome_cliente"] = ai_result["nome_cliente"]
-            if ai_result.get("setor_destino"):
-                accumulated["setor_provavel"] = ai_result["setor_destino"]
-            if ai_result.get("imovel_ou_contrato_relacionado"):
-                accumulated["imovel_ref"] = ai_result["imovel_ou_contrato_relacionado"]
-            if ai_result.get("intencao_principal"):
-                accumulated["objetivo_atual"] = ai_result["intencao_principal"]
-            if ai_result.get("proxima_acao"):
-                accumulated["proxima_acao"] = ai_result["proxima_acao"]
-            if ai_result.get("estagio_da_jornada") and ai_result["estagio_da_jornada"] != "nao_identificado":
-                accumulated["estagio_jornada"] = ai_result["estagio_da_jornada"]
+            # Use accumulated state sent from main.py via _accumulated_merge to preserve memory entirely
+            accumulated = ai_result.get("_accumulated_merge") or {}
+            
+            if not accumulated:
+                # Fallback backward-compatibility just in case
+                if ai_result.get("nome_cliente"): accumulated["nome_cliente"] = ai_result["nome_cliente"]
+                if ai_result.get("setor_destino"): accumulated["setor_provavel"] = ai_result["setor_destino"]
+                if ai_result.get("imovel_ou_contrato_relacionado"): accumulated["imovel_ref"] = ai_result["imovel_ou_contrato_relacionado"]
+                if ai_result.get("intencao_principal"): accumulated["objetivo_atual"] = ai_result["intencao_principal"]
+                if ai_result.get("proxima_acao"): accumulated["proxima_acao"] = ai_result["proxima_acao"]
+                if ai_result.get("estagio_da_jornada") and ai_result["estagio_da_jornada"] != "nao_identificado":
+                    accumulated["estagio_jornada"] = ai_result["estagio_da_jornada"]
 
             # Try to write extended columns + metadata
             extended_patch = dict(full_patch)
             for k, v in accumulated.items():
                 extended_patch[k] = v
+            
             # Also store in metadata blob as fallback for missing columns
             if accumulated:
                 extended_patch["metadata"] = accumulated
@@ -159,13 +173,14 @@ class SupabaseService:
     def get_property(property_id: str) -> Optional[dict]:
         if not SUPABASE_URL or not property_id: return None
         try:
+            safe_pid = _safe_param(property_id)
             # Try by code/ref first (slug or ref field), then by id
-            url = f"{SUPABASE_URL}/rest/v1/properties?code=eq.{property_id}"
+            url = f"{SUPABASE_URL}/rest/v1/properties?code=eq.{safe_pid}"
             res = requests.get(url, headers=get_headers())
             data = res.json()
             if data and len(data) > 0: return data[0]
             # fallback by id
-            url2 = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
+            url2 = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{safe_pid}"
             res2 = requests.get(url2, headers=get_headers())
             data2 = res2.json()
             if data2 and len(data2) > 0: return data2[0]
@@ -206,13 +221,14 @@ class SupabaseService:
             return []
 
         try:
-            select = "id,contract_number,numero_contrato,cpf,cnpj,cpf_cnpj,documento,pdf_url,pdf_path,created_at"
+            # SECURITY: doc já é sanitizado (apenas dígitos), seguro para URL
+            select = "id,contract_number,numero_contrato,pdf_url,created_at"
             url = (
                 f"{SUPABASE_URL}/rest/v1/contracts"
                 f"?select={select}"
                 f"&or=(cpf.eq.{doc},cnpj.eq.{doc},cpf_cnpj.eq.{doc},documento.eq.{doc})"
                 f"&order=created_at.desc"
-                f"&limit={limit}"
+                f"&limit={min(int(limit), 10)}"
             )
             res = requests.get(url, headers=get_headers())
             if res.status_code != 200:

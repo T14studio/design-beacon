@@ -1,18 +1,25 @@
 """
 economic_service.py
-===================
-Camada de integração com APIs externas para:
-  1. Indicadores econômicos (AwesomeAPI + Banco Central SGS)
-  2. Taxas de financiamento imobiliário (Banco Central ranking)
-  3. Motor de cálculo de simulação (SAC e PRICE)
+════════════════════════════════════════════════════════════════════════════════
+Camada de integração com APIs externas para indicadores econômicos e taxas.
 
-Fontes externas consultadas pelo backend:
-  - AwesomeAPI  : https://economia.awesomeapi.com.br  (câmbio)
-  - BCB/SGS     : https://api.bcb.gov.br               (Selic, IPCA, TR, CDI)
-  - BCB Ranking : https://www.bcb.gov.br/api/     (taxas financiamento imobiliário)
+FONTES DE DADOS (prioridade):
+  1. BRAPI       (principal)  : https://brapi.dev/api/v2
+     → /api/v2/currency       (USD/BRL, EUR/BRL)
+     → /api/v2/prime-rate     (SELIC, CDI)
+     → /api/v2/inflation      (IPCA, TR)
+  2. BCB/SGS     (fallback)   : https://api.bcb.gov.br
+     → séries 432 (Selic), 13522 (IPCA), 226 (TR), 4389 (CDI)
+  3. AwesomeAPI  (last resort) : https://economia.awesomeapi.com.br
+     → apenas câmbio, sem garantia de real-time sem API Key
+
+Configuração obrigatória (.env):
+  BRAPI_API_KEY   = pSr3gnfgRdCnjMvbfRXpnu
+  BRAPI_BASE_URL  = https://brapi.dev   (sem /api/v2 — montamos internamente)
 """
 
 import os
+import sys
 import json
 import time
 import math
@@ -23,6 +30,51 @@ from typing import Optional
 # ── Cache simples em memória ─────────────────────────────────────────────────
 _cache: dict = {}
 CACHE_TTL = 300  # 5 minutos
+
+
+# ── Configuração BRAPI (fonte principal) ─────────────────────────────────────
+_BRAPI_TOKEN    = os.getenv("BRAPI_API_KEY", "").strip()
+_BRAPI_BASE     = os.getenv("BRAPI_BASE_URL", "https://brapi.dev").rstrip("/")
+_BRAPI_API_BASE = f"{_BRAPI_BASE}/api/v2"
+BRAPI_TIMEOUT   = float(os.getenv("BRAPI_TIMEOUT", "8"))
+BRAPI_RETRIES   = int(os.getenv("BRAPI_RETRIES", "2"))
+
+
+if not _BRAPI_TOKEN:
+    print(
+        "[EconomicService] AVISO: BRAPI_API_KEY não configurada. "
+        "Usando BCB/SGS como fonte primária (degradado).",
+        file=sys.stderr
+    )
+
+
+def _brapi_params(extra: dict = None) -> dict:
+    """Monta parâmetros base para requisições BRAPI com autenticação."""
+    params = {"token": _BRAPI_TOKEN} if _BRAPI_TOKEN else {}
+    if extra:
+        params.update(extra)
+    return params
+
+
+async def _brapi_get(client: httpx.AsyncClient, path: str, params: dict = None) -> dict:
+    """
+    Executa GET autenticado na BRAPI com retry exponencial.
+    Lança httpx.HTTPError em caso de falha definitiva.
+    """
+    url = f"{_BRAPI_API_BASE}/{path.lstrip('/')}"
+    req_params = _brapi_params(params)
+    last_exc = None
+    for attempt in range(max(1, BRAPI_RETRIES)):
+        try:
+            r = await client.get(url, params=req_params, timeout=BRAPI_TIMEOUT)
+            r.raise_for_status()
+            return r.json()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < BRAPI_RETRIES - 1:
+                await asyncio.sleep(0.8 * (attempt + 1))
+    print(f"[EconomicService] BRAPI {path} falhou após {BRAPI_RETRIES} tentativas: {type(last_exc).__name__}", file=sys.stderr)
+    raise last_exc
 
 
 def _get_cache(key: str):
@@ -296,65 +348,155 @@ TIMEOUT = 8.0
 
 
 class EconomicService:
-    # ── 1. Indicadores econômicos ─────────────────────────────────────────────
+    # ── 1. Indicadores econômicos (BRAPI primário → BCB/SGS fallback) ─────────
     @staticmethod
     async def get_indicators() -> dict:
         cached = _get_cache("indicators")
         if cached:
             return cached
 
+        # Valores estáticos de fallback (usados quando TODAS as fontes falham)
         result = {
-            "usd": {"value": "R$ 5,79", "change": "...", "up": True, "isLive": False},
-            "eur": {"value": "R$ 6,32", "change": "...", "up": True, "isLive": False},
-            "selic": {"value": "14,75%", "change": "0,0%", "up": False, "isLive": False},
-            "ipca": {"value": "5,48%", "change": "+0,1%", "up": True, "isLive": False},
-            "tr": {"value": "0,09%", "change": "0,0%", "up": False, "isLive": False},
-            "cdi": {"value": "14,65%", "change": "0,0%", "up": False, "isLive": False},
+            "usd":   {"value": "R$ 5,79",  "change": "--", "up": True,  "isLive": False},
+            "eur":   {"value": "R$ 6,32",  "change": "--", "up": True,  "isLive": False},
+            "selic": {"value": "14,75%",   "change": "--", "up": False, "isLive": False},
+            "ipca":  {"value": "5,48%",    "change": "--", "up": True,  "isLive": False},
+            "tr":    {"value": "0,09%",    "change": "--", "up": False, "isLive": False},
+            "cdi":   {"value": "14,65%",   "change": "--", "up": False, "isLive": False},
         }
 
-        async with httpx.AsyncClient(headers=HEADERS, timeout=TIMEOUT, follow_redirects=True) as client:
-            # Câmbio — AwesomeAPI
-            try:
-                r = await client.get(AWESOME_FX_URL)
-                if r.status_code == 200:
-                    fx = r.json()
-                    if "USDBRL" in fx:
-                        d = fx["USDBRL"]
-                        pct = float(d.get("pctChange", 0))
-                        result["usd"] = {
-                            "value": f"R$ {float(d['bid']):.2f}".replace(".", ","),
-                            "change": f"{'+' if pct > 0 else ''}{pct:.2f}%",
-                            "up": pct > 0,
-                            "isLive": True,
-                        }
-                    if "EURBRL" in fx:
-                        d = fx["EURBRL"]
-                        pct = float(d.get("pctChange", 0))
-                        result["eur"] = {
-                            "value": f"R$ {float(d['bid']):.2f}".replace(".", ","),
-                            "change": f"{'+' if pct > 0 else ''}{pct:.2f}%",
-                            "up": pct > 0,
-                            "isLive": True,
-                        }
-            except Exception as e:
-                print(f"[EconomicService] AwesomeAPI error: {e}")
+        async with httpx.AsyncClient(headers=HEADERS, timeout=BRAPI_TIMEOUT, follow_redirects=True) as client:
 
-            # Banco Central — séries SGS
-            for key, url in BCB_SGS.items():
+            # ── BLOCO 1: Câmbio via BRAPI /api/v2/currency ───────────────────
+            fx_from_brapi = False
+            try:
+                data = await _brapi_get(client, "currency", {"currency": "USD-BRL,EUR-BRL"})
+                currencies = data.get("currency", [])
+                for item in currencies:
+                    from_c = str(item.get("fromCurrency", "")).upper()
+                    to_c   = str(item.get("toCurrency", "")).upper()
+                    # bidPrice ou price dependendo da versão da BRAPI
+                    bid = item.get("bidPrice") or item.get("price")
+                    if bid is None:
+                        continue
+                    bid_f = float(bid)
+                    change_pct = float(item.get("variation") or item.get("pctChange") or 0)
+                    formatted = {
+                        "value": f"R$ {bid_f:.2f}".replace(".", ","),
+                        "change": f"{'+'  if change_pct > 0 else ''}{change_pct:.2f}%",
+                        "up": change_pct > 0,
+                        "isLive": True,
+                        "source": "brapi",
+                    }
+                    if from_c == "USD" and to_c == "BRL":
+                        result["usd"] = formatted
+                        fx_from_brapi = True
+                    elif from_c == "EUR" and to_c == "BRL":
+                        result["eur"] = formatted
+                        fx_from_brapi = True
+            except Exception as e:
+                print(f"[EconomicService] BRAPI /currency falhou: {type(e).__name__} — tentando AwesomeAPI", file=sys.stderr)
+
+            # ── Fallback câmbio: AwesomeAPI (apenas se BRAPI falhou) ─────────
+            if not fx_from_brapi:
                 try:
-                    r = await client.get(url)
+                    r = await client.get(AWESOME_FX_URL, timeout=6.0)
+                    if r.status_code == 200:
+                        fx = r.json()
+                        for code, key in (("USDBRL", "usd"), ("EURBRL", "eur")):
+                            if code in fx:
+                                d = fx[code]
+                                pct = float(d.get("pctChange") or 0)
+                                result[key] = {
+                                    "value": f"R$ {float(d['bid']):.2f}".replace(".", ","),
+                                    "change": f"{'+'  if pct > 0 else ''}{pct:.2f}%",
+                                    "up": pct > 0,
+                                    "isLive": True,
+                                    "source": "awesomeapi_fallback",
+                                }
+                except Exception as ae:
+                    print(f"[EconomicService] AwesomeAPI fallback também falhou: {type(ae).__name__}", file=sys.stderr)
+
+            # ── BLOCO 2: SELIC + CDI via BRAPI /api/v2/prime-rate ───────────
+            prime_from_brapi = {"selic": False, "cdi": False}
+            try:
+                data = await _brapi_get(client, "prime-rate", {"country": "brazil"})
+                items = data.get("prime-rate", [])
+                for item in items:
+                    name = str(item.get("name") or item.get("type") or "").lower()
+                    val  = item.get("value") or item.get("rate")
+                    if val is None:
+                        continue
+                    val_f = float(val)
+                    date_str = str(item.get("date") or item.get("referenceDate") or "")
+                    formatted = {
+                        "value": f"{val_f:.2f}%".replace(".", ","),
+                        "change": date_str,
+                        "up": False,
+                        "isLive": True,
+                        "source": "brapi",
+                    }
+                    if "selic" in name:
+                        result["selic"] = formatted
+                        prime_from_brapi["selic"] = True
+                    elif "cdi" in name:
+                        result["cdi"] = formatted
+                        prime_from_brapi["cdi"] = True
+            except Exception as e:
+                print(f"[EconomicService] BRAPI /prime-rate falhou: {type(e).__name__} — usando BCB SGS", file=sys.stderr)
+
+            # ── BLOCO 3: IPCA + TR via BRAPI /api/v2/inflation ──────────────
+            infl_from_brapi = {"ipca": False, "tr": False}
+            try:
+                data = await _brapi_get(client, "inflation", {"country": "brazil"})
+                items = data.get("inflation", [])
+                for item in items:
+                    name = str(item.get("name") or item.get("type") or "").lower()
+                    val  = item.get("value") or item.get("rate")
+                    if val is None:
+                        continue
+                    val_f = float(val)
+                    date_str = str(item.get("date") or item.get("referenceDate") or "")
+                    formatted = {
+                        "value": f"{val_f:.2f}%".replace(".", ","),
+                        "change": date_str,
+                        "up": val_f > 0,
+                        "isLive": True,
+                        "source": "brapi",
+                    }
+                    if "ipca" in name:
+                        result["ipca"] = formatted
+                        infl_from_brapi["ipca"] = True
+                    elif "tr" in name or "referencial" in name:
+                        result["tr"] = formatted
+                        infl_from_brapi["tr"] = True
+            except Exception as e:
+                print(f"[EconomicService] BRAPI /inflation falhou: {type(e).__name__} — usando BCB SGS", file=sys.stderr)
+
+            # ── Fallback macro: BCB SGS (para indicadores ainda não obtidos) ─
+            needs_bcb = [
+                k for k in ("selic", "cdi", "ipca", "tr")
+                if not prime_from_brapi.get(k, False) and not infl_from_brapi.get(k, False)
+            ]
+            for key in needs_bcb:
+                url = BCB_SGS.get(key)
+                if not url:
+                    continue
+                try:
+                    r = await client.get(url, timeout=6.0)
                     if r.status_code == 200:
                         data = r.json()
                         if isinstance(data, list) and len(data) > 0:
                             val = float(data[-1]["valor"])
                             result[key] = {
                                 "value": f"{val:.2f}%".replace(".", ","),
-                                "change": "BCB",
+                                "change": str(data[-1].get("data", "BCB")),
                                 "up": False,
                                 "isLive": True,
+                                "source": "bcb_sgs_fallback",
                             }
                 except Exception as e:
-                    print(f"[EconomicService] BCB SGS {key} error: {e}")
+                    print(f"[EconomicService] BCB SGS {key} falhou: {type(e).__name__}", file=sys.stderr)
 
         result["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         _set_cache("indicators", result)

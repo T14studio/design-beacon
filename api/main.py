@@ -19,7 +19,14 @@ from supabase_service import SupabaseService
 from openai_service import OpenAIService
 from economic_service import EconomicService
 from security import check_rate_limit, check_contracts_rate_limit, sanitize_id, sanitize_text_input
-from fastapi import Request 
+from whatsapp_service import WhatsAppService, WhatsAppConfig, verify_webhook_signature, normalize_phone
+from financing_service import (
+    FinancingPayload,
+    FinancingValidationError,
+    simulate_financing,
+    compare_financing_scenarios,
+)
+from fastapi import Request
 import re
 
 app = FastAPI(title="Axis Backend", version="1.0.1")
@@ -521,6 +528,582 @@ async def simulate_financing(payload: SimulationPayload):
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return {"status": "ok", "result": result}
+
+
+# ═════════════════════════════════════════════════════════════
+# FINANCIAMENTO — /api/financing/simulate  (novo endpoint padronizado)
+# ═════════════════════════════════════════════════════════════
+
+class ApiFinancingSimulatePayload(BaseModel):
+    property_value:         float = Field(..., gt=0, description="Valor total do imóvel")
+    down_payment:           float = Field(..., ge=0, description="Valor de entrada")
+    term_months:            int   = Field(..., gt=0, le=420, description="Prazo em meses (máx 420 = 35 anos)")
+    amortization_system:    str   = Field(..., pattern="^(SAC|PRICE)$", description="SAC ou PRICE")
+    interest_rate_annual:   float = Field(..., ge=0, le=100, description="Taxa de juros anual em %")
+
+
+@app.post("/api/financing/simulate")
+async def api_financing_simulate(payload: ApiFinancingSimulatePayload):
+    """
+    Simula um único cenário de financiamento imobiliário.
+    Suporta SAC e PRICE. Totalmente isolado de fontes externas.
+
+    Entrada:
+      property_value, down_payment, term_months,
+      amortization_system (SAC|PRICE), interest_rate_annual
+
+    Saída padronizada:
+      input (dados normalizados), result (parcelas, totais), meta
+    """
+    try:
+        fp = FinancingPayload(
+            property_value=payload.property_value,
+            down_payment=payload.down_payment,
+            term_months=payload.term_months,
+            amortization_system=payload.amortization_system,
+            interest_rate_annual=payload.interest_rate_annual,
+        )
+        result = simulate_financing(fp)
+        return result
+    except FinancingValidationError as e:
+        raise HTTPException(status_code=422, detail={"error": "validation_error", "message": str(e)})
+    except Exception as e:
+        print(f"[/api/financing/simulate] erro inesperado: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail={"error": "internal_error", "message": "Erro interno no cálculo de simulação."})
+
+
+# ═════════════════════════════════════════════════════════════
+# FINANCIAMENTO — /api/financing/compare   (comparação de cenários)
+# ═════════════════════════════════════════════════════════════
+
+class ApiFinancingScenarioItem(BaseModel):
+    name:                   str   = Field(default="", max_length=100)
+    property_value:         float = Field(..., gt=0)
+    down_payment:           float = Field(..., ge=0)
+    term_months:            int   = Field(..., gt=0, le=420)
+    amortization_system:    str   = Field(..., pattern="^(SAC|PRICE)$")
+    interest_rate_annual:   float = Field(..., ge=0, le=100)
+
+class ApiFinancingComparePayload(BaseModel):
+    scenarios: List[ApiFinancingScenarioItem] = Field(..., min_length=1, max_length=10)
+
+
+@app.post("/api/financing/compare")
+async def api_financing_compare(payload: ApiFinancingComparePayload):
+    """
+    Compara múltiplos cenários de financiamento lado a lado.
+    Falhas individuais de cenários não derrubam os demais.
+    Máximo de 10 cenários por requisição.
+
+    Entrada:
+      {"scenarios": [{name, property_value, down_payment,
+                      term_months, amortization_system, interest_rate_annual}, ...]}
+
+    Saída:
+      {"scenarios": [...], "meta": {success, partial_failure, errors, generated_at}}
+    """
+    try:
+        fps = [
+            FinancingPayload(
+                property_value=s.property_value,
+                down_payment=s.down_payment,
+                term_months=s.term_months,
+                amortization_system=s.amortization_system,
+                interest_rate_annual=s.interest_rate_annual,
+                name=s.name or None,
+            )
+            for s in payload.scenarios
+        ]
+        result = compare_financing_scenarios(fps)
+        return result
+    except FinancingValidationError as e:
+        raise HTTPException(status_code=422, detail={"error": "validation_error", "message": str(e)})
+    except Exception as e:
+        print(f"[/api/financing/compare] erro inesperado: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail={"error": "internal_error", "message": "Erro interno na comparação de cenários."})
+
+
+# ═════════════════════════════════════════════════════════════
+# WHATSAPP — /webhooks/whatsapp/incoming
+# Recebe mensagens do WhatsApp via Uazapi
+# ═════════════════════════════════════════════════════════════
+
+# Mensagem padrão de handoff humano
+_HANDOFF_MESSAGE = (
+    "Ótimo! Vou transferir você para um especialista da nossa equipe. "
+    "Ele terá acesso ao contexto da nossa conversa e entrará em contato em breve. "
+    "👌 Aguarde!"
+)
+
+
+def _normalize_uazapi_payload(raw: dict) -> dict:
+    """
+    Normaliza payload bruto da Uazapi para formato interno padrão.
+    Desacopla a aplicação do formato específico do provedor.
+
+    Retorna:
+        telefone, nome, mensagem, tipo, timestamp, message_id, direction
+    """
+    # Estrutura Uazapi: {event, data: {key, message: {key, remoteJid, pushName, ...}, body}}
+    data = raw.get("data") or raw.get("message") or raw
+    message_obj = data.get("message") or data
+
+    # Telefone: remoteJid é o formato Uazapi (ex: 5511999999999@s.whatsapp.net)
+    remote_jid = (
+        message_obj.get("remoteJid")
+        or data.get("remoteJid")
+        or raw.get("remoteJid")
+        or ""
+    )
+    # Remove sufixo @s.whatsapp.net ou @c.us
+    telefone_raw = remote_jid.split("@")[0] if "@" in remote_jid else remote_jid
+    telefone = normalize_phone(telefone_raw) if telefone_raw else ""
+
+    # Nome
+    nome = (
+        message_obj.get("pushName")
+        or data.get("pushName")
+        or raw.get("pushName")
+        or ""
+    )
+
+    # Tipo e conteúdo da mensagem
+    tipo = "text"
+    mensagem = ""
+    media_url = None
+    media_filename = None
+
+    # Texto puro
+    body = data.get("body") or message_obj.get("body") or ""
+    if body:
+        mensagem = str(body)
+        tipo = "text"
+
+    # Fallback: verifica campos aninhados de mensagem
+    if not mensagem:
+        msg_content = message_obj.get("message") or {}
+        if isinstance(msg_content, dict):
+            if "conversation" in msg_content:
+                mensagem = msg_content["conversation"]
+                tipo = "text"
+            elif "extendedTextMessage" in msg_content:
+                mensagem = msg_content["extendedTextMessage"].get("text", "")
+                tipo = "text"
+            elif "imageMessage" in msg_content:
+                tipo = "image"
+                media_url = msg_content["imageMessage"].get("url")
+                mensagem = msg_content["imageMessage"].get("caption", "[imagem]") or "[imagem]"
+            elif "documentMessage" in msg_content:
+                tipo = "document"
+                media_url = msg_content["documentMessage"].get("url")
+                media_filename = msg_content["documentMessage"].get("fileName")
+                mensagem = msg_content["documentMessage"].get("caption", "[documento]") or "[documento]"
+            elif "audioMessage" in msg_content:
+                tipo = "audio"
+                media_url = msg_content["audioMessage"].get("url")
+                mensagem = "[áudio]"
+            elif "buttonsResponseMessage" in msg_content:
+                tipo = "button_reply"
+                mensagem = msg_content["buttonsResponseMessage"].get("selectedDisplayText", "")
+
+    # Timestamp
+    ts_raw = (
+        message_obj.get("messageTimestamp")
+        or data.get("messageTimestamp")
+        or raw.get("timestamp")
+    )
+    timestamp = str(ts_raw) if ts_raw else None
+
+    # Message ID
+    message_id = (
+        message_obj.get("id")
+        or data.get("id")
+        or raw.get("id")
+    )
+
+    # Direction: fromMe indica mensagem enviada pelo número comercial
+    from_me = message_obj.get("key", {}).get("fromMe", False) if isinstance(message_obj.get("key"), dict) else False
+    direction = "outbound" if from_me else "inbound"
+
+    return {
+        "telefone": telefone,
+        "nome": nome.strip() if nome else "",
+        "mensagem": mensagem.strip(),
+        "tipo": tipo,
+        "timestamp": timestamp,
+        "message_id": str(message_id) if message_id else None,
+        "direction": direction,
+        "media_url": media_url,
+        "media_filename": media_filename,
+    }
+
+
+@app.post("/webhooks/whatsapp/incoming", status_code=200)
+async def whatsapp_incoming_webhook(request: Request):
+    """
+    Endpoint de webhook para recebimento de mensagens WhatsApp via Uazapi.
+
+    SEGURANÇA:
+    - Valida assinatura HMAC-SHA256 quando UAZAPI_WEBHOOK_SECRET está configurado.
+    - Não exibe credentials em logs.
+    - Retorna 200 mesmo em erros não-críticos para evitar reenvio loop do provedor.
+
+    FLUXO:
+    1. Valida assinatura do webhook
+    2. Normaliza payload
+    3. Ignora mensagens outbound (da própria Axis)
+    4. Localiza ou cria contato WhatsApp
+    5. Persiste mensagem recebida
+    6. Localiza ou cria sessão Axis
+    7. Salva mensagem no histórico da sessão (formato padrão Axis)
+    8. Chama OpenAI (Axis) para processar
+    9. Persiste resposta
+    10. Dispara handoff se necessário
+    11. Responde via WhatsApp send_text
+    """
+    # ── Leitura e validação da assinatura ────────────────────────────────────
+    try:
+        body_bytes = await request.body()
+    except Exception:
+        return {"status": "error", "detail": "body_read_error"}
+
+    # Valida assinatura se secret estiver configurado
+    signature_header = (
+        request.headers.get("x-hub-signature-256")
+        or request.headers.get("x-uazapi-signature")
+        or request.headers.get("x-signature")
+        or ""
+    )
+    if WhatsAppConfig.webhook_secret() and signature_header:
+        if not verify_webhook_signature(body_bytes, signature_header):
+            print("[WHATSAPP-SECURITY] Webhook: assinatura inválida — request rejeitada.", file=__import__('sys').stderr)
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=403, content={"status": "forbidden", "detail": "invalid_signature"})
+    elif WhatsAppConfig.webhook_secret() and not signature_header:
+        # Secret configurado mas sem assinatura no header — aceita com warning (pode ser ping de setup)
+        print("[WHATSAPP-SECURITY] Webhook recebido sem assinatura. Verifique configuração Uazapi.", file=__import__('sys').stderr)
+
+    # ── Parsea payload JSON ────────────────────────────────────────────────────
+    try:
+        import json as _json
+        raw_payload = _json.loads(body_bytes)
+    except Exception:
+        return {"status": "ok", "detail": "invalid_json"}
+
+    # ── Normaliza payload para formato interno ────────────────────────────────
+    try:
+        normalized = _normalize_uazapi_payload(raw_payload)
+    except Exception as e:
+        print(f"[WHATSAPP] Erro ao normalizar payload: {type(e).__name__}")
+        return {"status": "ok", "detail": "normalization_error"}
+
+    telefone = normalized["telefone"]
+    nome     = normalized["nome"]
+    mensagem = normalized["mensagem"]
+    tipo     = normalized["tipo"]
+    direction = normalized["direction"]
+    message_id = normalized["message_id"]
+
+    # ── Ignora mensagens enviadas pela própria Axis (fromMe) ─────────────────
+    if direction == "outbound":
+        return {"status": "ok", "detail": "outbound_ignored"}
+
+    # ── Ignora payloads sem telefone ou mensagem ──────────────────────────────
+    if not telefone or not mensagem:
+        return {"status": "ok", "detail": "empty_payload_ignored"}
+
+    # ── Log sem dados pessoais identificadores ────────────────────────────────
+    print(f"[WHATSAPP-WH] tipo={tipo} msg_len={len(mensagem)} has_phone={bool(telefone)}")
+
+    try:
+        # ── 1. Localiza ou cria contato WhatsApp ─────────────────────────────
+        contact = SupabaseService.get_or_create_whatsapp_contact(
+            telefone=telefone,
+            nome=nome or None
+        )
+        contact_id = contact.get("id")
+
+        # ── 2. Persiste mensagem recebida ─────────────────────────────────────
+        SupabaseService.save_whatsapp_message(
+            contact_id=contact_id,
+            session_id=contact.get("session_id"),
+            direction="inbound",
+            tipo=tipo,
+            conteudo=mensagem,
+            message_id=message_id,
+            media_url=normalized.get("media_url"),
+            media_filename=normalized.get("media_filename"),
+            timestamp_origem=normalized.get("timestamp"),
+            raw_payload={k: v for k, v in raw_payload.items() if k not in ("token", "secret", "auth")},
+        )
+
+        # ── 3. Localiza ou cria sessão Axis ──────────────────────────────────
+        # Para WhatsApp, browser_user_id = telefone normalizado
+        customer = SupabaseService.get_or_create_customer(
+            browser_user_id=f"wa_{telefone}",
+            channel="whatsapp"
+        )
+        customer_id = customer.get("id", f"wa_{telefone}")
+
+        session = SupabaseService.get_or_create_session(
+            session_id=contact.get("session_id"),
+            customer_id=customer_id,
+        )
+        session_id = session.get("id")
+        current_state = session.get("current_state", "recepcao")
+
+        # Vincula session_id ao contato WA se ainda não vinculado
+        if not contact.get("session_id"):
+            SupabaseService.update_whatsapp_contact_context(
+                telefone=telefone,
+                session_id=session_id
+            )
+
+        # ── 4. Recupera histórico da sessão para contexto ────────────────────
+        history_records = SupabaseService.get_messages(session_id, limit=15)
+        history = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in history_records
+            if msg["role"] in ("user", "assistant")
+        ]
+
+        # ── 5. Monta dados coletados / contexto ───────────────────────────────
+        session_meta = session.get("metadata") or {}
+        if isinstance(session_meta, str):
+            try: session_meta = _json.loads(session_meta)
+            except: session_meta = {}
+
+        accumulated_state = {
+            "nome_cliente":    session.get("nome_cliente") or session_meta.get("nome_cliente") or nome or None,
+            "objetivo_atual":  session.get("objetivo_atual") or session_meta.get("objetivo_atual"),
+            "setor_provavel":  contact.get("setor") or session.get("setor_provavel") or session_meta.get("setor_provavel"),
+            "imovel_ref":      session.get("imovel_ref") or session_meta.get("imovel_ref"),
+            "estagio_jornada": session.get("estagio_jornada") or session_meta.get("estagio_jornada"),
+            "proxima_acao":    session.get("proxima_acao") or session_meta.get("proxima_acao"),
+        }
+
+        dados_coletados = {}
+        if accumulated_state.get("nome_cliente"):
+            dados_coletados["name"] = accumulated_state["nome_cliente"]
+        if telefone:
+            dados_coletados["phone"] = telefone
+        if not dados_coletados.get("name"):
+            inferred = _infer_name_from_message(mensagem)
+            if inferred:
+                dados_coletados["name"] = inferred
+
+        context = {
+            "current_state":    current_state,
+            "contexto_imovel":  {},
+            "dados_coletados":  dados_coletados,
+            "estado_anterior":  {},
+            "sessao_acumulada": accumulated_state,
+            "canal":            "whatsapp",
+        }
+
+        # ── 6. Salva mensagem do usuário na sessão Axis ───────────────────────
+        SupabaseService.save_message(session_id, "user", mensagem)
+
+        # Só processa texto com a Axis (ignora áudio/outros sem transcrição)
+        if tipo not in ("text", "button_reply"):
+            fallback_reply = "Recebi sua mensagem! Por enquanto, consigo responder apenas textos. 😊"
+            SupabaseService.save_message(session_id, "assistant", fallback_reply)
+            SupabaseService.save_whatsapp_message(
+                contact_id=contact_id, session_id=session_id,
+                direction="outbound", tipo="text", conteudo=fallback_reply
+            )
+            WhatsAppService.send_text(telefone, fallback_reply)
+            return {"status": "ok", "detail": "non_text_replied"}
+
+        # ── 7. Chama OpenAI (Axis) ────────────────────────────────────────────
+        print(f"[WHATSAPP-AXIS] session={str(session_id)[:8]}... state={current_state} msg_len={len(mensagem)}")
+        ai_result = await OpenAIService.process_turn(mensagem, history, context)
+
+        # ── 8. Processa output da Axis ────────────────────────────────────────
+        reply         = ai_result.get("message_to_user", "Olá! Seja bem-vindo. Como posso ajudar?")
+        new_state     = ai_result.get("etapa_da_conversa", current_state)
+        handed_off    = ai_result.get("handoff_recomendado", False)
+        setor_destino = ai_result.get("setor_destino")
+        prioridade    = ai_result.get("prioridade", "normal")
+
+        # Override de intenção de fotos (adaptação WA: WA não abre galeria, texto alternativo)
+        if _detect_photo_intent(mensagem):
+            reply = "Para ver as fotos do imóvel, entre em contato com nossa equipe comercial! 🏡 Eles enviam o link do tour virtual pelo WhatsApp."
+
+        # Override de setor por palavras-chave
+        routed_force = _route_department_from_message(mensagem)
+        if routed_force:
+            setor_destino = routed_force
+            ai_result["setor_destino"] = routed_force
+            if routed_force == "administrativo" and any(k in mensagem.lower() for k in ["urgente", "vazamento", "sem luz"]):
+                prioridade = "alta"
+
+        # Anti-loop
+        nome_final = ai_result.get("nome_cliente") or dados_coletados.get("name")
+        if nome_final and new_state == "recepcao":
+            new_state = "qualificacao"
+            ai_result["etapa_da_conversa"] = "qualificacao"
+
+        # Atualiza accumulated_state
+        if ai_result.get("nome_cliente"): accumulated_state["nome_cliente"] = ai_result["nome_cliente"]
+        if ai_result.get("setor_destino"): accumulated_state["setor_provavel"] = ai_result["setor_destino"]
+        ai_result["_accumulated_merge"] = accumulated_state
+
+        # ── 9. Persiste resposta no histórico Axis ───────────────────────────
+        SupabaseService.save_message(session_id, "assistant", reply, metadata=ai_result)
+        SupabaseService.update_session_full_state(session_id, ai_result, current_state)
+
+        # ── 10. Atualiza contexto do contato WA ───────────────────────────────
+        resumo_para_salvar = ai_result.get("resumo_do_caso") or ai_result.get("intencao_principal")
+        SupabaseService.update_whatsapp_contact_context(
+            telefone=telefone,
+            session_id=session_id,
+            setor=setor_destino,
+            prioridade=prioridade,
+            status_lead="ativo" if new_state not in ("recepcao",) else "novo",
+            resumo_contexto=resumo_para_salvar,
+        )
+
+        # ── 11. Persiste mensagem de saída do bot ─────────────────────────────
+        SupabaseService.save_whatsapp_message(
+            contact_id=contact_id,
+            session_id=session_id,
+            direction="outbound",
+            tipo="text",
+            conteudo=reply,
+        )
+
+        # ── 12. Handoff humano ────────────────────────────────────────────────
+        if handed_off and setor_destino:
+            SupabaseService.create_handoff_ticket(session_id, ai_result)
+            SupabaseService.trigger_whatsapp_handoff(
+                telefone=telefone,
+                setor_destino=setor_destino,
+                motivo=ai_result.get("resumo_do_caso") or "Handoff solicitado pela Axis",
+            )
+            # Envia mensagem de transição ANTES da resposta da Axis
+            WhatsAppService.send_text(telefone, _HANDOFF_MESSAGE)
+            SupabaseService.save_whatsapp_message(
+                contact_id=contact_id, session_id=session_id,
+                direction="outbound", tipo="text", conteudo=_HANDOFF_MESSAGE
+            )
+
+        # ── 13. Envia resposta via WhatsApp ───────────────────────────────────
+        send_result = WhatsAppService.send_text(telefone, reply)
+        if not send_result.get("ok"):
+            print(f"[WHATSAPP] Falha ao enviar resposta: {send_result.get('error', 'unknown')} — credenciais preenchidas?")
+
+        return {"status": "ok", "session_id": str(session_id)[:8] + "..."}
+
+    except Exception as e:
+        print(f"[WHATSAPP] ERRO CRÍTICO no webhook: {type(e).__name__}: {str(e)[:100]}")
+        # Tenta entregar resposta de fallback ao usuário mesmo em caso de erro
+        try:
+            WhatsAppService.send_text(
+                telefone,
+                "Desculpe, tive um problema técnico. Por favor, tente novamente em instantes! 🙏"
+            )
+        except Exception:
+            pass
+        return {"status": "ok", "detail": "internal_error_handled"}
+
+
+# ═════════════════════════════════════════════════════════════
+# WHATSAPP — /whatsapp/send
+# Endpoint interno de envio de mensagens WhatsApp
+# USO: backend-to-backend ou painel administrativo interno
+# NUNCA expor diretamente ao frontend sem autenticação
+# ═════════════════════════════════════════════════════════════
+
+class WhatsAppSendPayload(BaseModel):
+    to:          str  = Field(..., min_length=8, max_length=30, description="Número destino (será normalizado).")
+    type:        str  = Field(default="text", pattern="^(text|image|document)$")
+    text:        Optional[str]  = Field(default=None, max_length=4096)
+    image_url:   Optional[str]  = Field(default=None, max_length=2048)
+    caption:     Optional[str]  = Field(default=None, max_length=1024)
+    file_url:    Optional[str]  = Field(default=None, max_length=2048)
+    filename:    Optional[str]  = Field(default=None, max_length=255)
+
+
+@app.post("/whatsapp/send")
+async def whatsapp_send(payload: WhatsAppSendPayload, request: Request):
+    """
+    Endpoint interno para envio de mensagens WhatsApp.
+
+    SEGURANÇA:
+    - Este endpoint não deve ser exposto publicamente sem autenticação adicional.
+    - O token Uazapi nunca é retornado na resposta.
+    - Logs sem conteudo da mensagem para proteger dados do usuário.
+
+    Suporta:
+    - text:     Texto simples
+    - image:    Imagem via URL pública
+    - document: Documento via URL pública
+    """
+    if not WhatsAppService.is_enabled():
+        cfg_errors = WhatsAppConfig.validation_errors()
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "whatsapp_channel_unavailable",
+                "message": "Canal WhatsApp desabilitado ou credenciais não configuradas.",
+                "config_errors": cfg_errors,
+            }
+        )
+
+    msg_type = payload.type
+    to = payload.to
+
+    print(f"[WHATSAPP-SEND] type={msg_type} to_len={len(to)}")
+
+    if msg_type == "text":
+        if not payload.text:
+            raise HTTPException(status_code=400, detail="Campo 'text' obrigatório para type=text.")
+        result = WhatsAppService.send_text(to, payload.text)
+
+    elif msg_type == "image":
+        if not payload.image_url:
+            raise HTTPException(status_code=400, detail="Campo 'image_url' obrigatório para type=image.")
+        result = WhatsAppService.send_image(to, payload.image_url, caption=payload.caption)
+
+    elif msg_type == "document":
+        if not payload.file_url:
+            raise HTTPException(status_code=400, detail="Campo 'file_url' obrigatório para type=document.")
+        result = WhatsAppService.send_document(
+            to, payload.file_url,
+            filename=payload.filename,
+            caption=payload.caption
+        )
+    else:
+        raise HTTPException(status_code=400, detail="type inválido.")
+
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=502,
+            detail={"error": result.get("error", "send_failed"), "message": "Falha ao enviar via WhatsApp."}
+        )
+
+    return {"status": "ok", "type": msg_type, "provider": WhatsAppConfig.provider()}
+
+
+# ═════════════════════════════════════════════════════════════
+# WHATSAPP — /whatsapp/status
+# Health check interno do canal WhatsApp (sem credentials)
+# ═════════════════════════════════════════════════════════════
+
+@app.get("/whatsapp/status")
+async def whatsapp_status():
+    """
+    Retorna diagnóstico do canal WhatsApp.
+    NÃO retorna valores das credenciais — apenas presença/ausência.
+    Seguro para health checks e dashboards internos.
+    """
+    config = WhatsAppService.validate_config()
+    return {
+        "status": "ok" if config["ready"] else "not_ready",
+        "channel": "whatsapp",
+        **config,
+    }
 
 
 # End of API

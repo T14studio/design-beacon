@@ -40,13 +40,15 @@ if cors_origin:
 else:
     allowed_origins = [
         "https://astonishing-cobbler-78d913.netlify.app",
+        "https://teal-wolverine-555626.hostingersite.com",
         "http://localhost:5173",
-        "http://localhost:8000"
+        "http://localhost:8000",
+        "*"
     ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"], # Permite tudo para evitar erro de CORS
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

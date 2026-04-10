@@ -251,3 +251,192 @@ class SupabaseService:
         except Exception as e:
             print(f"Error search_contracts_by_document: {e}")
             return []
+
+    # ═══════════════════════════════════════════════════════════════
+    # WHATSAPP CHANNEL — Persistência de Contatos e Mensagens
+    # ═══════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def get_or_create_whatsapp_contact(telefone: str, nome: Optional[str] = None) -> dict:
+        """
+        Localiza ou cria um contato WhatsApp pelo telefone normalizado.
+        Atualiza nome se fornecido e diferente do armazenado.
+        Retorna o registro completo do contato.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            import uuid as _uuid
+            return {"id": str(_uuid.uuid4()), "telefone": telefone, "nome": nome, "canal": "whatsapp"}
+        try:
+            safe_tel = _safe_param(telefone)
+            url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}&limit=1"
+            res = requests.get(url, headers=get_headers())
+            if res.status_code == 200:
+                data = res.json()
+                if data and len(data) > 0:
+                    contact = data[0]
+                    # Atualiza nome se novo e diferente
+                    if nome and contact.get("nome") != nome:
+                        patch_url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}"
+                        requests.patch(patch_url, headers=get_headers(), json={"nome": nome, "ultimo_contato": "now()"})
+                        contact["nome"] = nome
+                    else:
+                        # Atualiza timestamp de último contato
+                        patch_url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}"
+                        requests.patch(patch_url, headers=get_headers(), json={"ultimo_contato": "now()"})
+                    return contact
+
+            # Criar novo contato
+            new_contact = {
+                "telefone": telefone,
+                "nome": nome or "",
+                "canal": "whatsapp",
+                "status_lead": "novo",
+                "origem": "whatsapp_inbound",
+                "prioridade": "normal",
+                "handoff_humano": False,
+            }
+            post_url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts"
+            res2 = requests.post(post_url, headers=get_headers(), json=new_contact)
+            if res2.status_code in (200, 201):
+                created = res2.json()
+                return created[0] if isinstance(created, list) and created else new_contact
+            return new_contact
+        except Exception as e:
+            print(f"[WA] Error get_or_create_whatsapp_contact: {type(e).__name__}")
+            return {"telefone": telefone, "nome": nome, "canal": "whatsapp"}
+
+    @staticmethod
+    def save_whatsapp_message(
+        contact_id: Optional[str],
+        session_id: Optional[str],
+        direction: str,
+        tipo: str,
+        conteudo: str,
+        message_id: Optional[str] = None,
+        media_url: Optional[str] = None,
+        media_filename: Optional[str] = None,
+        timestamp_origem: Optional[str] = None,
+        raw_payload: Optional[dict] = None,
+    ) -> Optional[dict]:
+        """
+        Persiste uma mensagem do canal WhatsApp na tabela whatsapp_messages.
+        raw_payload é armazenado sem credenciais — apenas dados da mensagem.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return None
+        try:
+            msg = {
+                "contact_id": contact_id,
+                "session_id": session_id,
+                "direction": direction,  # inbound | outbound
+                "tipo": tipo,
+                "conteudo": conteudo or "",
+                "message_id": message_id,
+                "media_url": media_url,
+                "media_filename": media_filename,
+                "timestamp_origem": timestamp_origem,
+                "raw_payload": raw_payload or {},
+            }
+            url = f"{SUPABASE_URL}/rest/v1/whatsapp_messages"
+            res = requests.post(url, headers=get_headers(), json=msg)
+            if res.status_code in (200, 201):
+                data = res.json()
+                return data[0] if isinstance(data, list) and data else msg
+            return msg
+        except Exception as e:
+            print(f"[WA] Error save_whatsapp_message: {type(e).__name__}")
+            return None
+
+    @staticmethod
+    def update_whatsapp_contact_context(
+        telefone: str,
+        session_id: Optional[str] = None,
+        setor: Optional[str] = None,
+        prioridade: Optional[str] = None,
+        status_lead: Optional[str] = None,
+        resumo_contexto: Optional[str] = None,
+    ):
+        """
+        Atualiza campos de contexto do contato WhatsApp após processamento da Axis.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return
+        try:
+            patch = {}
+            if session_id:       patch["session_id"] = session_id
+            if setor:            patch["setor"] = setor
+            if prioridade:       patch["prioridade"] = prioridade
+            if status_lead:      patch["status_lead"] = status_lead
+            if resumo_contexto:  patch["resumo_contexto"] = resumo_contexto
+            if not patch:
+                return
+            safe_tel = _safe_param(telefone)
+            url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}"
+            requests.patch(url, headers=get_headers(), json=patch)
+        except Exception as e:
+            print(f"[WA] Error update_whatsapp_contact_context: {type(e).__name__}")
+
+    @staticmethod
+    def trigger_whatsapp_handoff(
+        telefone: str,
+        setor_destino: str,
+        motivo: Optional[str] = None,
+    ):
+        """
+        Marca o contato WhatsApp como em handoff humano.
+        Registra setor destino, motivo e timestamp.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return
+        try:
+            import datetime
+            safe_tel = _safe_param(telefone)
+            patch = {
+                "handoff_humano": True,
+                "handoff_setor": setor_destino,
+                "handoff_motivo": motivo or "Solicitado pela Axis",
+                "handoff_em": datetime.datetime.utcnow().isoformat() + "Z",
+            }
+            url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}"
+            requests.patch(url, headers=get_headers(), json=patch)
+        except Exception as e:
+            print(f"[WA] Error trigger_whatsapp_handoff: {type(e).__name__}")
+
+    @staticmethod
+    def get_whatsapp_history(telefone: str, limit: int = 15) -> List[dict]:
+        """
+        Retorna histórico recente de mensagens WhatsApp de um contato, em ordem cronológica.
+        Usado para alimentar contexto da Axis.
+        """
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return []
+        try:
+            safe_tel = _safe_param(telefone)
+            # Primeiro localiza o contact_id
+            contact_url = f"{SUPABASE_URL}/rest/v1/whatsapp_contacts?telefone=eq.{safe_tel}&select=id&limit=1"
+            res = requests.get(contact_url, headers=get_headers())
+            if res.status_code != 200:
+                return []
+            contacts = res.json()
+            if not contacts:
+                return []
+            contact_id = contacts[0].get("id")
+            if not contact_id:
+                return []
+
+            # Busca mensagens do contato em ordem cronológica
+            safe_cid = _safe_param(contact_id)
+            msg_url = (
+                f"{SUPABASE_URL}/rest/v1/whatsapp_messages"
+                f"?contact_id=eq.{safe_cid}"
+                f"&order=created_at.desc"
+                f"&limit={min(int(limit), 30)}"
+            )
+            res2 = requests.get(msg_url, headers=get_headers())
+            if res2.status_code == 200:
+                messages = res2.json()
+                return messages[::-1]  # Retorna em ordem cronológica crescente
+            return []
+        except Exception as e:
+            print(f"[WA] Error get_whatsapp_history: {type(e).__name__}")
+            return []

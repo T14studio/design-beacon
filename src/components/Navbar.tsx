@@ -51,7 +51,7 @@ export default function Navbar() {
 
         {/* Center: CRECI (Mobile Only) */}
         <div className="flex md:hidden items-center justify-center flex-1 px-3">
-          <span className="text-[10px] sm:text-[11px] font-mono tracking-widest font-bold text-muted-foreground/60 uppercase mt-[2px] whitespace-nowrap">
+          <span className="text-[10px] sm:text-[11px] tracking-widest font-bold text-muted-foreground/60 uppercase mt-[2px] whitespace-nowrap">
             CRECI 7903
           </span>
         </div>
@@ -61,7 +61,7 @@ export default function Navbar() {
           
           {/* Desktop Only Right Nav */}
           <div className="hidden md:flex items-center gap-4 lg:gap-6">
-            <span className="text-[11px] lg:text-[12px] font-mono tracking-widest font-bold text-muted-foreground/60 uppercase mt-1">
+            <span className="text-[11px] lg:text-[12px] tracking-widest font-bold text-muted-foreground/60 uppercase mt-1">
               CRECI 7903
             </span>
             <a

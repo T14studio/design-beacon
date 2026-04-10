@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Properties from "./pages/Properties";
 import PropertyDetail from "./pages/PropertyDetail";
 import Simulator from "./pages/Simulator";
+import ClientArea from "./pages/ClientArea";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/imoveis" element={<Properties />} />
           <Route path="/imoveis/:id" element={<PropertyDetail />} />
           <Route path="/simulador" element={<Simulator />} />
+          <Route path="/cliente" element={<ClientArea />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <WhatsAppButton />

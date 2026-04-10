@@ -67,7 +67,7 @@ export default function MarketIndicators() {
       </div>
       
       <div className="mt-5 sm:mt-6 md:mt-8 pt-4 sm:pt-5 md:pt-6 border-t border-white/5 flex items-center justify-between">
-         <p className="text-[8px] sm:text-[9px] text-muted-foreground/50 italic">Fonte: AwesomeAPI / Banco Central do Brasil (SGS)</p>
+         <p className="text-[8px] sm:text-[9px] text-muted-foreground/50 italic">Fonte: BRAPI / Banco Central do Brasil (SGS)</p>
          <div className="flex gap-1.5 sm:gap-2">
             <div className="w-1 h-1 bg-primary/40 rounded-full" />
             <div className="w-1 h-1 bg-primary/20 rounded-full" />

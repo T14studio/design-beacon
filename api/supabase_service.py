@@ -222,10 +222,9 @@ class SupabaseService:
 
         try:
             # SECURITY: doc já é sanitizado (apenas dígitos), seguro para URL
-            select = "id,contract_number,numero_contrato,pdf_url,created_at"
             url = (
                 f"{SUPABASE_URL}/rest/v1/contracts"
-                f"?select={select}"
+                f"?select=*"
                 f"&or=(cpf.eq.{doc},cnpj.eq.{doc},cpf_cnpj.eq.{doc},documento.eq.{doc})"
                 f"&order=created_at.desc"
                 f"&limit={min(int(limit), 10)}"

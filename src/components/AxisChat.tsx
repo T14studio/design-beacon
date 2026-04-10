@@ -55,16 +55,23 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
 
   // URL do Webhook da Axis
   const getWebhookUrl = () => {
-    const envUrl = import.meta.env.VITE_AXIS_WEBHOOK_URL;
+    let envUrl = import.meta.env.VITE_AXIS_WEBHOOK_URL as string | undefined;
     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     
-    // Se temos uma URL no env e ela não é localhost (ou estamos localmente), usamos ela.
     if (envUrl && (!envUrl.includes("localhost") || isLocal)) {
+      // Remove trailing slash if present
+      envUrl = envUrl.replace(/\/+$/, "");
+      
+      // If the user only provided the base URL (without /axis/turn), append it
+      if (!envUrl.endsWith("/axis/turn")) {
+        // Just in case they provided an endpoint for something else, let's strictly replace or append
+        if (envUrl.endsWith("/api")) envUrl = envUrl.replace(/\/api$/, "");
+        envUrl = `${envUrl}/axis/turn`;
+      }
       return envUrl;
     }
     
-    // Fallback: se estivermos localmente, usamos o backend Python local.
-    // Caso contrário, usamos o novo backend no Render (que deve ser configurado no Netlify como VITE_AXIS_WEBHOOK_URL)
+    // Fallback absoluto focado no onrender para procução
     return isLocal 
       ? "http://localhost:8000/axis/turn" 
       : "https://design-beacon.onrender.com/axis/turn";

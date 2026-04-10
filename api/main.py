@@ -31,22 +31,25 @@ import re
 
 app = FastAPI(title="Axis Backend", version="1.0.1")
 
-cors_origins_raw = os.getenv("CORS_ORIGIN", "")
-if not cors_origins_raw.strip() or cors_origins_raw.strip() == "*":
-    import sys as _sys
-    print("[SECURITY WARNING] CORS_ORIGIN nao configurado ou set to '*'. "
-          "Em producao, defina CORS_ORIGIN para o dominio do frontend.", file=_sys.stderr)
-    cors_origins_raw = cors_origins_raw or "*"
-cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
-if not cors_origins:
-    cors_origins = ["*"]
+
+# ── CORS Middleware ─────────────────────────────────────────────────────────────
+# Tenta pegar CORS_ORIGIN do ambiente, senão aceita a URL atual do Netlify e localhost
+cors_origin = os.getenv("CORS_ORIGIN")
+if cors_origin:
+    allowed_origins = [cors_origin]
+else:
+    allowed_origins = [
+        "https://astonishing-cobbler-78d913.netlify.app",
+        "http://localhost:5173",
+        "http://localhost:8000"
+    ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Security Headers Middleware ─────────────────────────────────────────────

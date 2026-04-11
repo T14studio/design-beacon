@@ -131,10 +131,12 @@ def normalize_phone(raw: str, country_code: Optional[str] = None) -> str:
     """
     if not raw:
         return ""
+    # Remove qualquer coisa que não seja dígito
     digits = "".join(ch for ch in raw if ch.isdigit())
-    cc = country_code or WhatsAppConfig.default_country_code()
-    # Se não começar com o código do país, adiciona
-    if not digits.startswith(cc):
+    
+    # Se o número for curto (ex: 11999999999), adiciona o DDI padrão (Brasil = 55)
+    cc = country_code or "55"
+    if len(digits) <= 11 and not digits.startswith(cc):
         digits = cc + digits
     return digits
 

@@ -644,107 +644,91 @@ _HANDOFF_MESSAGE = (
 def _normalize_uazapi_payload(raw: dict) -> dict:
     """
     Normaliza payload bruto da Uazapi para formato interno padrão.
-    Desacopla a aplicação do formato específico do provedor.
-
-    Retorna:
-        telefone, nome, mensagem, tipo, timestamp, message_id, direction
+    Suporta tanto o formato aninhado (Baileys/Uazapi v2) quanto o formato plano (Agente LA).
     """
-    # Estrutura Uazapi: {event, data: {key, message: {key, remoteJid, pushName, ...}, body}}
-    data = raw.get("data") or raw.get("message") or raw
-    message_obj = data.get("message") or data
-
-    # Telefone: remoteJid é o formato Uazapi (ex: 5511999999999@s.whatsapp.net)
+    # 1. Tentar extrair Telefone (Prioridade para o formato plano visto no log)
     remote_jid = (
-        message_obj.get("remoteJid")
-        or data.get("remoteJid")
+        raw.get("phone")
+        or raw.get("wa_chatId")
+        or (raw.get("data") or {}).get("remoteJid")
         or raw.get("remoteJid")
         or ""
     )
-    # Remove sufixo @s.whatsapp.net ou @c.us
     telefone_raw = remote_jid.split("@")[0] if "@" in remote_jid else remote_jid
-    telefone = normalize_phone(telefone_raw) if telefone_raw else ""
+    telefone = normalize_phone(telefone_raw)
 
-    # Nome
+    # 2. Tentar extrair Nome
     nome = (
-        message_obj.get("pushName")
-        or data.get("pushName")
-        or raw.get("pushName")
+        raw.get("wa_name")
+        or raw.get("name")
+        or (raw.get("data") or {}).get("pushName")
         or ""
     )
 
-    # Tipo e conteúdo da mensagem
+    # 3. Tentar extrair Mensagem e Tipo
     tipo = "text"
-    mensagem = ""
+    mensagem = (
+        raw.get("wa_lastMessageTextVote")
+        or raw.get("wa_lastMessageText")
+        or raw.get("body")
+        or ""
+    )
     media_url = None
     media_filename = None
 
-    # Texto puro: campo "body" presente em alguns webhooks Uazapi
-    body = data.get("body") or message_obj.get("body") or ""
-    if body:
-        mensagem = str(body)
-        tipo = "text"
-
-    # Uazapi v2: mensagem está em data["message"] (dict), NÃO em message_obj.get("message")
-    # message_obj pode já SER esse dict quando data["message"] foi atribuído a message_obj
-    # Tentamos extrair diretamente de data["message"] para cobrir todos os casos
+    # Fallback para o formato aninhado (Uazapi v2 / Baileys)
     if not mensagem:
-        # msg_root pode ser data["message"] (dict Uazapi) ou o próprio message_obj
-        msg_root = data.get("message") if isinstance(data.get("message"), dict) else {}
-        # Se message_obj já É o dict de mensagem (quando data["message"] tinha conteúdo)
-        # também tentamos message_obj direto
-        for msg_content in [msg_root, message_obj if isinstance(message_obj, dict) else {}]:
-            if not isinstance(msg_content, dict):
-                continue
-            if mensagem:
-                break
-            if "conversation" in msg_content:
-                mensagem = msg_content["conversation"]
-                tipo = "text"
-            elif "extendedTextMessage" in msg_content:
-                mensagem = msg_content["extendedTextMessage"].get("text", "")
-                tipo = "text"
-            elif "imageMessage" in msg_content:
-                tipo = "image"
-                media_url = msg_content["imageMessage"].get("url")
-                mensagem = msg_content["imageMessage"].get("caption", "[imagem]") or "[imagem]"
-            elif "documentMessage" in msg_content:
-                tipo = "document"
-                media_url = msg_content["documentMessage"].get("url")
-                media_filename = msg_content["documentMessage"].get("fileName")
-                mensagem = msg_content["documentMessage"].get("caption", "[documento]") or "[documento]"
-            elif "audioMessage" in msg_content:
-                tipo = "audio"
-                media_url = msg_content["audioMessage"].get("url")
-                mensagem = "[áudio]"
-            elif "buttonsResponseMessage" in msg_content:
-                tipo = "button_reply"
-                mensagem = msg_content["buttonsResponseMessage"].get("selectedDisplayText", "")
-
-    # Timestamp
-    ts_raw = (
-        message_obj.get("messageTimestamp")
-        or data.get("messageTimestamp")
-        or raw.get("timestamp")
-    )
-    timestamp = str(ts_raw) if ts_raw else None
+        data = raw.get("data") or raw.get("message") or {}
+        message_obj = data.get("message") or data
+        
+        # Procura texto em campos padrões
+        body = data.get("body") or message_obj.get("body") or ""
+        if body:
+            mensagem = str(body)
+        else:
+            # Varredura profunda em data["message"]
+            msg_root = data.get("message") if isinstance(data.get("message"), dict) else {}
+            for msg_content in [msg_root, message_obj if isinstance(message_obj, dict) else {}]:
+                if not isinstance(msg_content, dict) or mensagem: continue
+                if "conversation" in msg_content:
+                    mensagem = msg_content["conversation"]
+                elif "extendedTextMessage" in msg_content:
+                    mensagem = msg_content["extendedTextMessage"].get("text", "")
+                elif "imageMessage" in msg_content:
+                    tipo = "image"
+                    media_url = msg_content["imageMessage"].get("url")
+                    mensagem = msg_content["imageMessage"].get("caption", "[imagem]")
+                elif "documentMessage" in msg_content:
+                    tipo = "document"
+                    media_url = msg_content["documentMessage"].get("url")
+                    mensagem = msg_content["documentMessage"].get("caption", "[documento]")
+                elif "audioMessage" in msg_content:
+                    tipo = "audio"
+                    mensagem = "[áudio]"
+                elif "buttonsResponseMessage" in msg_content:
+                    tipo = "button_reply"
+                    mensagem = msg_content["buttonsResponseMessage"].get("selectedDisplayText", "")
 
     # Message ID
     message_id = (
-        message_obj.get("id")
-        or data.get("id")
-        or raw.get("id")
+        raw.get("id") 
+        or raw.get("wa_lastMessageId")
+        or (raw.get("data") or {}).get("id")
     )
 
     # Direction: fromMe indica mensagem enviada pelo número comercial
-    from_me = message_obj.get("key", {}).get("fromMe", False) if isinstance(message_obj.get("key"), dict) else False
+    from_me = raw.get("fromMe", False)
+    if not from_me and isinstance(raw.get("data"), dict):
+        from_me = raw["data"].get("key", {}).get("fromMe", False)
+    
     direction = "outbound" if from_me else "inbound"
 
     return {
         "telefone": telefone,
-        "nome": nome.strip() if nome else "",
-        "mensagem": mensagem.strip(),
+        "nome": str(nome).strip() if nome else "",
+        "mensagem": str(mensagem).strip(),
         "tipo": tipo,
-        "timestamp": timestamp,
+        "timestamp": str(raw.get("timestamp") or raw.get("wa_lastMsgTimestamp") or ""),
         "message_id": str(message_id) if message_id else None,
         "direction": direction,
         "media_url": media_url,

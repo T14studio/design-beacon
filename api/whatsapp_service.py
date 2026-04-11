@@ -186,10 +186,13 @@ class _UazapiClient:
 
     @staticmethod
     def _headers() -> Dict[str, str]:
+        token = WhatsAppConfig.token()
+        # Log de segurança: mostra apenas o início para conferência no Render
+        print(f"[WHATSAPP-AUTH] Usando token iniciado em: {token[:4]}...", file=__import__('sys').stderr)
         return {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "token": WhatsAppConfig.token(),
+            "token": token,
         }
 
     @classmethod

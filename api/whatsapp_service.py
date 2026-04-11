@@ -71,13 +71,19 @@ class WhatsAppConfig:
     def instance_id() -> str:
         val = _cfg("UAZAPI_INSTANCE_ID", "")
         if not val:
-            # Tenta inferir o ID da instância do subdomínio da Uazapi
-            # Ex: https://axis-imobiliaria.uazapi.com -> axis-imobiliaria
-            base = WhatsAppConfig.base_url()
-            if "uazapi.com" in base:
-                parts = base.replace("https://", "").replace("http://", "").split(".")
-                if len(parts) >= 2:
-                    return parts[0]
+            # Fallback to extract from URL (e.g., https://my-instance.uazapi.com -> my-instance)
+            try:
+                base = WhatsAppConfig.base_url()
+                from urllib.parse import urlparse
+                subdomain = urlparse(base).netloc.split('.')[0]
+                
+                # Hardcoded fallback para evitar 406 na Evolution API do Agente LA se a variável não estiver no Render
+                if subdomain == "axis-imobiliaria":
+                    return "Axis WhatsApp"
+                    
+                return subdomain
+            except:
+                return "default"
         return val
 
     @staticmethod

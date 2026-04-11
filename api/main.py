@@ -918,6 +918,9 @@ async def whatsapp_incoming_webhook(request: Request):
             if inferred:
                 dados_coletados["name"] = inferred
 
+        # Detecta se é primeira interação real (histórico vazio = primeiro turno)
+        is_first_turn = len(history) == 0
+
         context = {
             "current_state":    current_state,
             "contexto_imovel":  {},
@@ -925,6 +928,7 @@ async def whatsapp_incoming_webhook(request: Request):
             "estado_anterior":  {},
             "sessao_acumulada": accumulated_state,
             "canal":            "whatsapp",
+            "is_first_turn":    is_first_turn,
         }
 
         # ── 6. Salva mensagem do usuário na sessão Axis ───────────────────────
@@ -1014,10 +1018,44 @@ async def whatsapp_incoming_webhook(request: Request):
                 direction="outbound", tipo="text", conteudo=_HANDOFF_MESSAGE
             )
 
-        # ── 13. Envia resposta via WhatsApp ───────────────────────────────────
-        send_result = WhatsAppService.send_text(telefone, reply)
-        if not send_result.get("ok"):
-            print(f"[WHATSAPP] Falha ao enviar resposta: {send_result.get('error', 'unknown')} — credenciais preenchidas?")
+        # ── 13. Envia resposta via WhatsApp (texto + botões contextuais) ────────
+        ctas = ai_result.get("sugestoes_de_cta") or []
+
+        # Mapeia setor para rótulo do botão principal de setor
+        _setor_label = {
+            "comercial":     "Comercial",
+            "administrativo": "Administração",
+            "financeiro":    "Financeiro",
+        }
+        setor_btn_label = _setor_label.get(setor_destino or "", None)
+
+        # Cria lista final de botões: começa pelo rótulo de setor (se identificado) + CTAs de apoio
+        botoes_rótulos: list = []
+        if setor_btn_label:
+            botoes_rótulos.append(setor_btn_label)
+        for cta in ctas:
+            if cta not in botoes_rótulos:
+                botoes_rótulos.append(cta)
+        # WhatsApp suporta máx 3 botões de reply rápido
+        botoes_rótulos = botoes_rótulos[:3]
+
+        # Tenta enviar com botões reais (send_buttons). Faz fallback se falhar.
+        send_result = None
+        if botoes_rótulos:
+            buttons_payload = [{"id": f"btn_{i}", "text": label} for i, label in enumerate(botoes_rótulos)]
+            btn_result = WhatsAppService.send_buttons(telefone, reply, buttons_payload)
+            if btn_result.get("ok"):
+                send_result = btn_result
+            else:
+                # Fallback elegante: texto com opções numeradas limpas (sem telefone, sem link)
+                opcoes_texto = "\n".join(f"{i+1}. {label}" for i, label in enumerate(botoes_rótulos))
+                fallback_msg = f"{reply}\n\n{opcoes_texto}"
+                send_result = WhatsAppService.send_text(telefone, fallback_msg)
+        else:
+            send_result = WhatsAppService.send_text(telefone, reply)
+
+        if not send_result or not send_result.get("ok"):
+            print(f"[WHATSAPP] Falha ao enviar resposta: {(send_result or {}).get('error', 'unknown')}")
 
         return {"status": "ok", "session_id": str(session_id)[:8] + "..."}
 

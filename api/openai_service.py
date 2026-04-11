@@ -145,7 +145,35 @@ class OpenAIService:
             )
             prompt += session_memory_block
 
+        # ── Injection: is_first_turn + setor atual ─────────────────────────────
+        is_first_turn = context.get("is_first_turn", True)
+        turn_block = "\n\n## CONTEXTO DO TURNO ATUAL\n"
+        if is_first_turn:
+            turn_block += (
+                "- PRIMEIRO CONTATO: Esta é a primeira mensagem do cliente nesta sessão.\n"
+                "- USE a abertura oficial da Axis: curta, acolhedora, voltada para WhatsApp.\n"
+                "- Não faça perguntas longas neste momento. Acolha e pergunte o assunto em uma linha.\n"
+            )
+        else:
+            turn_block += (
+                "- SESSÃO EM ANDAMENTO: Esta NÃO é a primeira mensagem.\n"
+                "- PROIBIDO repetir a saudação de primeiro contato ('Olá! Eu sou a Axis...').\n"
+                "- Continue o contexto da conversa diretamente. Seja breve e direto.\n"
+                "- Se o cliente mandar 'oi' ou 'olá' novamente, responda de forma curta e siga o contexto.\n"
+            )
+
+        # Setor identificado no acumulado
+        setor_atual = sessao.get("setor_provavel")
+        if setor_atual:
+            setor_label = {"comercial": "Comercial", "administrativo": "Administração", "financeiro": "Financeiro"}.get(setor_atual, setor_atual)
+            turn_block += (
+                f"- SETOR JÁ IDENTIFICADO: {setor_label}. Não reclassifique sem motivo.\n"
+                f"  Inclua no campo 'sugestoes_de_cta' o label '{setor_label}' como primeiro CTA.\n"
+            )
+
+        prompt += turn_block
         prompt = prompt.replace("{{HISTORICO_MENSAGENS}}", "Carregado via histórico de chat abaixo.")
+
 
         # ── Build messages array ───────────────────────────────────────────────
         messages = [{"role": "system", "content": prompt}]

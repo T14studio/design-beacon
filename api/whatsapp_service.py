@@ -186,11 +186,10 @@ class _UazapiClient:
 
     @staticmethod
     def _headers() -> Dict[str, str]:
-        token = WhatsAppConfig.token()
         return {
             "Content-Type": "application/json",
-            "token": token,
-            "apikey": token, # Necessário para instâncias Evolution API / Agente LA
+            "Accept": "application/json",
+            "token": WhatsAppConfig.token(),
         }
 
     @classmethod
@@ -216,8 +215,11 @@ class _UazapiClient:
             )
             status = resp.status_code
             if status not in (200, 201):
-                # Log sem conteúdo da mensagem para não vazar dados sensíveis
-                print(f"[WHATSAPP] POST {path} → HTTP {status} (não-OK)", file=sys.stderr)
+                try:
+                    err_body = resp.text[:300]
+                except:
+                    err_body = "<unreadable>"
+                print(f"[WHATSAPP] POST {url} → HTTP {status} body={err_body}", file=sys.stderr)
                 return {"ok": False, "status": status, "error": f"HTTP {status}"}
             return {"ok": True, "status": status, "data": resp.json()}
         except requests.exceptions.ConnectionError:
@@ -306,20 +308,15 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
-        instance = WhatsAppConfig.instance_id()
-        import urllib.parse
-        instance_path = urllib.parse.quote(instance)
-
         body = {
             "number": phone,
             "text": text,
-            "options": {
-                "delay": 1200,
-                "presence": "composing"
-            }
+            "delay": 2,
+            "readchat": True,
         }
-        # Endpoint padrão Evolution API / Agente LA
-        return _UazapiClient.post(f"/message/sendText/{instance_path}", body)
+        # Endpoint oficial Uazapi: POST /send/text com header token
+        print(f"[WHATSAPP] Enviando via POST /send/text → number={phone[:6]}...", file=__import__('sys').stderr)
+        return _UazapiClient.post("/send/text", body)
 
     # ── Envio de imagem ────────────────────────────────────────────────────────
 

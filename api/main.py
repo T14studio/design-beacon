@@ -789,7 +789,7 @@ async def whatsapp_incoming_webhook(request: Request):
         print(f"[WHATSAPP-DEBUG] Falha ao parsear JSON: {e}", file=__import__('sys').stderr)
         return {"status": "ok", "detail": "invalid_json"}
 
-    print(f"[WHATSAPP-DEBUG] CHAVES DO PAYLOAD RECEBIDO: {list(raw_payload.keys())}", file=__import__('sys').stderr)
+    print(f"[WHATSAPP-DEBUG] FULL RAW PAYLOAD: {_json.dumps(raw_payload, ensure_ascii=False)}", file=__import__('sys').stderr)
 
     # ── Normaliza payload para formato interno ────────────────────────────────
     try:

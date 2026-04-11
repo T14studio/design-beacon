@@ -678,16 +678,25 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
     media_url = None
     media_filename = None
 
-    # Texto puro
+    # Texto puro: campo "body" presente em alguns webhooks Uazapi
     body = data.get("body") or message_obj.get("body") or ""
     if body:
         mensagem = str(body)
         tipo = "text"
 
-    # Fallback: verifica campos aninhados de mensagem
+    # Uazapi v2: mensagem está em data["message"] (dict), NÃO em message_obj.get("message")
+    # message_obj pode já SER esse dict quando data["message"] foi atribuído a message_obj
+    # Tentamos extrair diretamente de data["message"] para cobrir todos os casos
     if not mensagem:
-        msg_content = message_obj.get("message") or {}
-        if isinstance(msg_content, dict):
+        # msg_root pode ser data["message"] (dict Uazapi) ou o próprio message_obj
+        msg_root = data.get("message") if isinstance(data.get("message"), dict) else {}
+        # Se message_obj já É o dict de mensagem (quando data["message"] tinha conteúdo)
+        # também tentamos message_obj direto
+        for msg_content in [msg_root, message_obj if isinstance(message_obj, dict) else {}]:
+            if not isinstance(msg_content, dict):
+                continue
+            if mensagem:
+                break
             if "conversation" in msg_content:
                 mensagem = msg_content["conversation"]
                 tipo = "text"
@@ -818,7 +827,10 @@ async def whatsapp_incoming_webhook(request: Request):
         return {"status": "ok", "detail": "empty_payload_ignored"}
 
     # ── Log sem dados pessoais identificadores ────────────────────────────────
-    print(f"[WHATSAPP-WH] tipo={tipo} msg_len={len(mensagem)} has_phone={bool(telefone)}")
+    print(f"[WHATSAPP-WH] tipo={tipo} msg_len={len(mensagem)} has_phone={bool(telefone)} direction={direction}")
+    # DEBUG: loga estrutura do raw_payload para diagnóstico (remover após confirmar funcionamento)
+    import json as _dbg_json
+    print(f"[WHATSAPP-DBG] raw_keys={list(raw_payload.keys())} data_keys={list((raw_payload.get('data') or {}).keys())}")
 
     try:
         # ── 1. Localiza ou cria contato WhatsApp ─────────────────────────────

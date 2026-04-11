@@ -314,8 +314,13 @@ class WhatsAppService:
             "number": phone,
             "text": text
         }
-        # Tentamos o endpoint oficial mais comum primeiro
-        return _UazapiClient.post("/send/text", body)
+        
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+        
+        # Evolution API / Uazapi padronizado: /message/sendText/{instance}
+        return _UazapiClient.post(f"/message/sendText/{instance_path}", body)
 
     # ── Envio de imagem ────────────────────────────────────────────────────────
 
@@ -421,20 +426,28 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
-        # Normaliza formato de botões para Uazapi
+        # Normaliza formato de botões para Uazapi / Evolution API (tipo 1 = reply button)
         formatted_buttons = [
-            {"buttonId": btn.get("id", f"btn{i}"), "buttonText": {"displayText": btn.get("text", "")}}
+            {
+                "buttonId": btn.get("id", f"btn{i}"), 
+                "buttonText": {"displayText": btn.get("text", "")},
+                "type": 1
+            }
             for i, btn in enumerate(buttons[:3])  # máx 3 botões
         ]
 
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
         body = {
-            "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
             "text": text,
             "footer": "",
             "buttons": formatted_buttons,
         }
-        return _UazapiClient.post("/message/sendButtons", body)
+        # Evolution API / Uazapi padronizado: /message/sendButtons/{instance}
+        return _UazapiClient.post(f"/message/sendButtons/{instance_path}", body)
 
     # ── Envio de lista/menu ───────────────────────────────────────────────────
 

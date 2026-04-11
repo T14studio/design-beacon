@@ -193,6 +193,7 @@
           "valor_maximo": { "type": ["number", "null"] },
           "tipo": { "type": ["string", "null"] }
         },
+        "required": ["modo", "bairro", "quartos", "valor_maximo", "tipo"],
         "additionalProperties": false,
         "description": "Filtros extraídos da conversa para buscar imóveis reais no sistema."
       }

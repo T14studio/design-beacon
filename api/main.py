@@ -912,6 +912,30 @@ async def whatsapp_incoming_webhook(request: Request):
             try: session_meta = _json.loads(session_meta)
             except: session_meta = {}
 
+        # ── Session Auto-Reset (30 min inactivity) ───────────────────────────
+        if history_records:
+            try:
+                from datetime import datetime, timezone
+                # Supabase returns UTC ISO strings
+                last_msg = history_records[-1]
+                last_ts = last_msg.get("created_at", "")
+                if last_ts:
+                    # Python 3.7+ compatible ISO parsing
+                    last_time = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+                    now = datetime.now(timezone.utc)
+                    delta = (now - last_time).total_seconds()
+                    
+                    if delta > 1800: # 30 minutes
+                        print(f"[WHATSAPP-SESSION] Session {session_id} expired after {delta}s. Force-clearing history for fresh turn.")
+                        history_records = []
+                        history = []
+                        # Clear old session data from memory
+                        accumulated_state = {"nome_cliente": accumulated_state.get("nome_cliente")}
+                        # Optional: clear session_id if we want a brand new record, but keeping same session_id 
+                        # and just clearing context is often safer for logging continuity.
+            except Exception as se:
+                print(f"[WHATSAPP-SESSION] Error checking expiry: {se}")
+
         accumulated_state = {
             "nome_cliente":    session.get("nome_cliente") or session_meta.get("nome_cliente") or nome or None,
             "objetivo_atual":  session.get("objetivo_atual") or session_meta.get("objetivo_atual"),

@@ -170,6 +170,55 @@ class SupabaseService:
             print(f"Error save msg: {e}")
 
     @staticmethod
+    def search_properties(filters: dict, limit: int = 3) -> List[dict]:
+        """
+        Busca imóveis com base em filtros oriundos da IA.
+        """
+        if not SUPABASE_URL: return []
+        try:
+            # filters can have: modo (venda/locacao), bairro, quartos, valor_maximo, tipo
+            url = f"{SUPABASE_URL}/rest/v1/properties?select=*"
+            
+            modo = filters.get("modo")
+            if modo:
+                if modo == "venda":
+                    url += "&mode=ilike.*Venda*"
+                elif modo == "locacao":
+                    url += "&mode=ilike.*Loca%C3%A7%C3%A3o*"
+            
+            tipo = filters.get("tipo")
+            if tipo:
+                # remove safety constraint and do a naive ilike
+                safe_tipo = requests.utils.quote(tipo)
+                url += f"&type=ilike.*{safe_tipo}*"
+            
+            bairro = filters.get("bairro")
+            if bairro:
+                safe_bairro = requests.utils.quote(bairro)
+                url += f"&address=ilike.*{safe_bairro}*"
+            
+            quartos = filters.get("quartos")
+            if quartos:
+                url += f"&bedrooms=gte.{int(quartos)}"
+                
+            valor_maximo = filters.get("valor_maximo")
+            if valor_maximo:
+                url += f"&price_num=lte.{float(valor_maximo)}"
+
+            url += f"&limit={limit}&order=created_at.desc"
+            print(f"[Supabase] Property Search: {url}")
+            
+            res = requests.get(url, headers=get_headers())
+            if res.status_code == 200:
+                data = res.json()
+                # If price_num is null, the result might still contain it.
+                return data
+            return []
+        except Exception as e:
+            print(f"Error search_properties: {e}")
+            return []
+
+    @staticmethod
     def get_property(property_id: str) -> Optional[dict]:
         if not SUPABASE_URL or not property_id: return None
         try:

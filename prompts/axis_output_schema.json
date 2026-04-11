@@ -35,6 +35,7 @@
       "repasse_ou_extrato_solicitado",
       "origem_do_contexto_do_imovel",
       "exibir_fotos_galeria",
+      "acionar_busca_imoveis",
       "sugestoes_de_cta"
     ],
     "additionalProperties": false,
@@ -178,6 +179,22 @@
       "exibir_fotos_galeria": {
         "type": "boolean",
         "description": "True se o usuário pediu especificamente para ver fotos ou imagens do imóvel atual."
+      },
+      "acionar_busca_imoveis": {
+        "type": "boolean",
+        "description": "True se o cliente indicou filtros suficientes (ação, tipo, bairro, valor, quartos) para fazer uma busca de imóveis."
+      },
+      "filtros_busca": {
+        "type": ["object", "null"],
+        "properties": {
+          "modo": { "type": ["string", "null"], "enum": ["venda", "locacao"] },
+          "bairro": { "type": ["string", "null"] },
+          "quartos": { "type": ["integer", "null"] },
+          "valor_maximo": { "type": ["number", "null"] },
+          "tipo": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false,
+        "description": "Filtros extraídos da conversa para buscar imóveis reais no sistema."
       }
     }
   }

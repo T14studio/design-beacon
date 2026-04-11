@@ -385,6 +385,19 @@ async def handle_turn(payload: TurnPayload, request: Request):
             
             ai_result["sugestoes_de_cta"] = sugestoes_cta
 
+        # Intercepta busca de imóveis e anexa resultados ao reply (Web)
+        if ai_result.get("acionar_busca_imoveis"):
+            filtros = ai_result.get("filtros_busca") or {}
+            props = SupabaseService.search_properties(filtros, limit=3)
+            
+            if props:
+                reply = "Encontrei estas opções para você 👇\n\n"
+                for p in props:
+                    reply += f"🏡 *{p.get('title', 'Imóvel')}*\n💰 R$ {p.get('price')}\n🛏️ {p.get('bedrooms', 0)} quartos\n📍 {p.get('address', 'Não informado')}\n🔗 Mais detalhes: https://etica.com.br/imovel/{p.get('slug', p['code'])}\n\n"
+                reply += "Essas são as opções mais aderentes ao que você me pediu. Quer seguir com mais detalhes, visita ou novas opções?"
+            else:
+                reply = "Não encontrei imóveis exatamente com esses filtros na nossa base no momento. Quer que eu busque com um valor diferente ou em outra região?"
+
         # Anti-loop guard: if name is known but state regressed to 'recepcao', advance it
         nome_final = ai_result.get("nome_cliente") or dados_coletados.get("name")
         if nome_final and new_state == "recepcao":
@@ -978,6 +991,31 @@ async def whatsapp_incoming_webhook(request: Request):
         if ai_result.get("nome_cliente"): accumulated_state["nome_cliente"] = ai_result["nome_cliente"]
         if ai_result.get("setor_destino"): accumulated_state["setor_provavel"] = ai_result["setor_destino"]
         ai_result["_accumulated_merge"] = accumulated_state
+
+        # Busca de imóveis via WhatsApp (envia fotos individualmente se existirem)
+        if ai_result.get("acionar_busca_imoveis"):
+            filtros = ai_result.get("filtros_busca") or {}
+            props = SupabaseService.search_properties(filtros, limit=3)
+            
+            if props:
+                # Envia mensagem inicial
+                WhatsAppService.send_text(telefone, "Encontrei estas opções para você 👇")
+                SupabaseService.save_whatsapp_message(contact_id=contact_id, session_id=session_id, direction="outbound", tipo="text", conteudo="Encontrei estas opções para você 👇")
+
+                # Envia os imóveis
+                for p in props:
+                    caption = f"🏡 *{p.get('title', 'Imóvel')}*\n💰 R$ {p.get('price')}\n🛏️ {p.get('bedrooms', 0)} quartos\n📍 {p.get('address', 'Não informado')}\n\n🔗 Mais detalhes: https://etica.com.br/imovel/{p.get('slug', p['code'])}"
+                    img_url = p.get("featured_image") or p.get("image_url")
+                    
+                    if img_url:
+                        WhatsAppService.send_image(telefone, img_url, caption=caption)
+                    else:
+                        WhatsAppService.send_text(telefone, caption)
+                
+                # O reply final (com CTAs) passa a ser a frase de fechamento
+                reply = "Essas são as opções mais aderentes ao que você me pediu. Quer seguir com mais detalhes, visita ou novas opções?"
+            else:
+                reply = "Não encontrei imóveis exatamente com esses filtros na nossa base no momento. Quer que eu busque com um valor diferente ou em outra região?"
 
         # ── 9. Persiste resposta no histórico Axis ───────────────────────────
         SupabaseService.save_message(session_id, "assistant", reply, metadata=ai_result)

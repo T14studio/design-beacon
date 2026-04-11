@@ -334,9 +334,9 @@ class OpenAIService:
 
                 # Resposta caso nenhuma intent seja acionada
                 if nome and context.get("current_state") == "recepcao":
-                    msg = f"Perfeito, {nome}! Me conte em poucas palavras o que você precisa."
+                    msg = f"Olá, {nome}! Eu sou a Axis, assistente virtual da Ética. Me conte: você precisa de ajuda com imóveis (comprar/alugar) ou assuntos administrativos/financeiros (boletos/contratos)?"
                 else:
-                    msg = f"Me conte em poucas palavras o que você precisa (compra/locação, contrato/documento, ou boletos)."
+                    msg = "Eu sou a Axis, assistente virtual da Ética. Como posso te ajudar hoje? Você pode falar sobre imóveis, boletos, contratos ou manutenção."
 
                 return (
                     msg,

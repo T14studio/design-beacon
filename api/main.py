@@ -677,16 +677,22 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
     telefone_raw = remote_jid.split("@")[0] if "@" in remote_jid else remote_jid
     telefone = normalize_phone(telefone_raw)
 
-    # 2. Tentar extrair Nome
-    nome = (
-        chat_obj.get("wa_name")
+    # 2. Tentar extrair Nome (Prioriza nomes de pessoas, ignora nomes de instâncias)
+    nome_raw = (
+        (raw.get("data") or {}).get("pushName")
+        or chat_obj.get("wa_contactName")
+        or chat_obj.get("wa_name")
         or chat_obj.get("name")
         or msg_obj.get("senderName")
-        or raw.get("wa_name")
-        or raw.get("name")
-        or (raw.get("data") or {}).get("pushName")
+        or raw.get("pushName")
         or ""
     )
+    # Filtro: Se o nome for o da instância ou bot, trata como desconhecido
+    bot_names = ["agente la", "axis whatsapp", "axis", "etica", "ética"]
+    if str(nome_raw).lower().strip() in bot_names or re.match(r"^\d+$", str(nome_raw)):
+        nome = ""
+    else:
+        nome = nome_raw
 
     # 3. Tentar extrair Mensagem e Tipo
     tipo = "text"
@@ -987,7 +993,7 @@ async def whatsapp_incoming_webhook(request: Request):
         ai_result = await OpenAIService.process_turn(mensagem, history, context)
 
         # ── 8. Processa output da Axis ────────────────────────────────────────
-        reply         = ai_result.get("message_to_user", "Olá! Eu sou a Axis, assistente virtual da Ética. Me conta o que você precisa e eu te direciono da forma mais rápida possível.")
+        reply         = ai_result.get("message_to_user", "Olá! Eu sou a Axis, assistente virtual da Ética. Como posso te ajudar hoje?")
         new_state     = ai_result.get("etapa_da_conversa", current_state)
         handed_off    = ai_result.get("handoff_recomendado", False)
         setor_destino = ai_result.get("setor_destino")

@@ -435,11 +435,11 @@ class WhatsAppService:
         ]
 
         body = {
-            "instanceId": WhatsAppConfig.instance_id(), # Uazapi expects instanceId in body
+            "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
             "text": text,
-            "footer": "",
             "buttons": formatted_buttons,
+            "footer": ""
         }
         # Uazapi original: /send/buttons
         return _UazapiClient.post("/send/buttons", body)

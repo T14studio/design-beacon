@@ -1107,6 +1107,10 @@ async def whatsapp_incoming_webhook(request: Request):
         # WhatsApp suporta máx 3 botões de reply rápido
         botoes_rótulos = botoes_rótulos[:3]
 
+        # Garantia de botões para abertura se estiver vazio
+        if not botoes_rótulos and new_state == "recepcao":
+            botoes_rótulos = ["Imóveis", "Administração", "Financeiro"]
+
         # Tenta enviar com botões reais (send_buttons). Faz fallback se falhar.
         send_result = None
         if botoes_rótulos:

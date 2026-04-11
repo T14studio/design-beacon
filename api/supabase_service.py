@@ -35,15 +35,20 @@ class SupabaseService:
             url = f"{SUPABASE_URL}/rest/v1/customers?browser_user_id=eq.{safe_uid}"
             res = requests.get(url, headers=get_headers())
             data = res.json()
-            if data and len(data) > 0:
+            if isinstance(data, list) and len(data) > 0:
                 return data[0]
+            
+            if isinstance(data, dict) and data.get("code"):
+                print(f"[Supabase] Error fetch customer: {data.get('message')}")
             
             # create
             post_url = f"{SUPABASE_URL}/rest/v1/customers"
             new_customer = {"browser_user_id": browser_user_id, "channel": channel}
             res = requests.post(post_url, headers=get_headers(), json=new_customer)
             data = res.json()
-            return data[0] if data and len(data) > 0 else {"id": browser_user_id}
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
+            return {"id": browser_user_id}
         except Exception as e:
             print(f"Error customer: {e}")
             return {"id": browser_user_id}
@@ -59,7 +64,7 @@ class SupabaseService:
                 url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{safe_sid}&customer_id=eq.{safe_cid}"
                 res = requests.get(url, headers=get_headers())
                 data = res.json()
-                if data and len(data) > 0:
+                if isinstance(data, list) and len(data) > 0:
                     existing = data[0]
                     if property_code and existing.get("property_id") != property_code:
                         safe_sid2 = _safe_param(session_id)
@@ -78,7 +83,9 @@ class SupabaseService:
             post_url = f"{SUPABASE_URL}/rest/v1/sessions"
             res = requests.post(post_url, headers=get_headers(), json=new_session)
             data = res.json()
-            return data[0] if data and len(data) > 0 else new_session
+            if isinstance(data, list) and len(data) > 0:
+                return data[0]
+            return new_session
         except Exception as e:
             print(f"Error session: {e}")
             return {"id": session_id or str(uuid.uuid4()), "current_state": "recepcao", "property_id": property_code}

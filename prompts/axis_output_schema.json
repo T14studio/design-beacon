@@ -36,6 +36,7 @@
       "origem_do_contexto_do_imovel",
       "exibir_fotos_galeria",
       "acionar_busca_imoveis",
+      "filtros_busca",
       "sugestoes_de_cta"
     ],
     "additionalProperties": false,

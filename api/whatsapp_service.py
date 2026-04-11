@@ -316,11 +316,9 @@ class WhatsAppService:
         }
         
         instance = WhatsAppConfig.instance_id()
-        import urllib.parse
-        instance_path = urllib.parse.quote(instance)
         
-        # Evolution API / Uazapi padronizado: /message/sendText/{instance}
-        return _UazapiClient.post(f"/message/sendText/{instance_path}", body)
+        # Uazapi original: /send/text
+        return _UazapiClient.post("/send/text", body)
 
     # ── Envio de imagem ────────────────────────────────────────────────────────
 
@@ -436,18 +434,15 @@ class WhatsAppService:
             for i, btn in enumerate(buttons[:3])  # máx 3 botões
         ]
 
-        instance = WhatsAppConfig.instance_id()
-        import urllib.parse
-        instance_path = urllib.parse.quote(instance)
-
         body = {
+            "instanceId": WhatsAppConfig.instance_id(), # Uazapi expects instanceId in body
             "number": phone,
             "text": text,
             "footer": "",
             "buttons": formatted_buttons,
         }
-        # Evolution API / Uazapi padronizado: /message/sendButtons/{instance}
-        return _UazapiClient.post(f"/message/sendButtons/{instance_path}", body)
+        # Uazapi original: /send/buttons
+        return _UazapiClient.post("/send/buttons", body)
 
     # ── Envio de lista/menu ───────────────────────────────────────────────────
 
@@ -491,4 +486,4 @@ class WhatsAppService:
             "buttonText": "Ver opções",
             "sections": sections,
         }
-        return _UazapiClient.post("/message/sendList", payload)
+        return _UazapiClient.post("/send/list", payload)

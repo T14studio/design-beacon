@@ -701,8 +701,10 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
         or msg_obj.get("content")
         or chat_obj.get("wa_lastMessageTextVote")
         or chat_obj.get("wa_lastMessageText")
+        or chat_obj.get("wa_lastMessageInteractiveVote")
         or raw.get("wa_lastMessageTextVote")
         or raw.get("wa_lastMessageText")
+        or raw.get("wa_lastMessageInteractiveVote")
         or raw.get("body")
         or ""
     )
@@ -1087,39 +1089,53 @@ async def whatsapp_incoming_webhook(request: Request):
             )
 
         # ── 13. Envia resposta via WhatsApp (texto + botões contextuais) ────────
+        # ── 13. Envia resposta interativa via Uazapi ─────────────────────────
         ctas = ai_result.get("sugestoes_de_cta") or []
-
-        # Mapeia setor para rótulo do botão principal de setor
-        _setor_label = {
-            "comercial":     "Comercial",
-            "administrativo": "Administração",
-            "financeiro":    "Financeiro",
-        }
-        setor_btn_label = _setor_label.get(setor_destino or "", None)
-
-        # Cria lista final de botões: começa pelo rótulo de setor (se identificado) + CTAs de apoio
+        
+        # Mapeia rótulos de botões contextuais
         botoes_rótulos: list = []
-        if setor_btn_label:
-            botoes_rótulos.append(setor_btn_label)
+        if setor_destino in ("comercial", "administrativo", "financeiro"):
+            _setor_map = {"comercial": "Imóveis", "administrativo": "Administração", "financeiro": "Financeiro"}
+            botoes_rótulos.append(_setor_map[setor_destino])
+            
         for cta in ctas:
             if cta not in botoes_rótulos:
                 botoes_rótulos.append(cta)
-        # WhatsApp suporta máx 3 botões de reply rápido
-        botoes_rótulos = botoes_rótulos[:3]
-
+        
         # Garantia de botões para abertura se estiver vazio
         if not botoes_rótulos and new_state == "recepcao":
             botoes_rótulos = ["Imóveis", "Administração", "Financeiro"]
 
-        # Tenta enviar com botões reais (send_buttons). Faz fallback se falhar.
         send_result = None
         if botoes_rótulos:
-            buttons_payload = [{"id": f"btn_{i}", "text": label} for i, label in enumerate(botoes_rótulos)]
-            btn_result = WhatsAppService.send_buttons(telefone, reply, buttons_payload)
+            # Define o tipo de mensagem: button (até 3) ou list (mais de 3)
+            menu_type = "button" if len(botoes_rótulos) <= 3 else "list"
+            
+            # Formata choices para o padrão Uazapi: "Rótulo|ID" ou "Rótulo|ID|Desc"
+            choices_formatted = []
+            for lbl in botoes_rótulos:
+                l_low = lbl.lower()
+                if "imóve" in l_low: choices_formatted.append(f"🏡 {lbl}|IMOVEIS")
+                elif "admin" in l_low: choices_formatted.append(f"📄 {lbl}|ADMINISTRACAO")
+                elif "finan" in l_low: choices_formatted.append(f"💳 {lbl}|FINANCEIRO")
+                elif "visit" in l_low: choices_formatted.append(f"📅 {lbl}|VISITA")
+                elif "contrat" in l_low: choices_formatted.append(f"📜 {lbl}|CONTRATO")
+                elif "boleto" in l_low or "pagar" in l_low: choices_formatted.append(f"💵 {lbl}|FINANCEIRO")
+                elif "docum" in l_low: choices_formatted.append(f"📄 {lbl}|ADMINISTRACAO")
+                else: choices_formatted.append(f"{lbl}|{lbl.upper().replace(' ', '_')}")
+
+            btn_result = WhatsAppService.send_menu(
+                telefone, 
+                reply, 
+                choices_formatted, 
+                menu_type=menu_type,
+                footer="Axis • Ética"
+            )
+            
             if btn_result.get("ok"):
                 send_result = btn_result
             else:
-                # Fallback elegante: texto com opções numeradas limpas (sem telefone, sem link)
+                # Fallback em texto se falhar o envio interativo
                 opcoes_texto = "\n".join(f"{i+1}. {label}" for i, label in enumerate(botoes_rótulos))
                 fallback_msg = f"{reply}\n\n{opcoes_texto}"
                 send_result = WhatsAppService.send_text(telefone, fallback_msg)

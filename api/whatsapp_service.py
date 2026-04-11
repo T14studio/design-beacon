@@ -447,27 +447,27 @@ class WhatsAppService:
     # ── Envio de lista/menu ───────────────────────────────────────────────────
 
     @classmethod
-    def send_list(
+    def send_menu(
         cls,
         to: str,
-        header: str,
-        body: str,
-        footer: str,
-        sections: List[Dict[str, Any]]
+        text: str,
+        choices: List[str],
+        menu_type: str = "button",
+        list_button_text: str = "Ver opções",
+        footer: str = "Escolha uma opção"
     ) -> Dict[str, Any]:
         """
-        Envia mensagem com lista/menu interativo (list message).
+        Envia mensagem interativa Uazapi (tipo 'button' ou 'list').
+        Ref: POST /send/menu
 
         Args:
-            to:       Número destino.
-            header:   Cabeçalho da lista.
-            body:     Corpo principal da mensagem.
-            footer:   Rodapé da mensagem.
-            sections: Lista de seções. Formato:
-                      [{"title": "Seção", "rows": [{"rowId": "id", "title": "Item", "description": "Desc"}]}]
-
-        Returns:
-            Dict com {"ok": bool, ...}
+            to:               Número destino.
+            text:             Texto da mensagem.
+            choices:          Lista de strings no formato "Rótulo|ID" ou "Rótulo|ID|Desc".
+                              Para 'list', pode incluir cabeçalhos de seção entre colchetes "[Seção]".
+            menu_type:        'button' ou 'list'.
+            list_button_text: Rótulo do botão que abre a lista (apenas para tipo 'list').
+            footer:           Texto de rodapé.
         """
         guard = cls._guard()
         if guard:
@@ -477,13 +477,59 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
-        payload = {
+        body = {
             "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
-            "text": body,
-            "title": header,
-            "footer": footer,
-            "buttonText": "Ver opções",
-            "sections": sections,
+            "type": menu_type,
+            "text": text,
+            "choices": choices,
+            "footerText": footer
         }
-        return _UazapiClient.post("/send/list", payload)
+        
+        if menu_type == "list":
+            body["listButton"] = list_button_text
+
+        return _UazapiClient.post("/send/menu", body)
+
+    # ── Métodos legados com redirecionamento para o novo motor interativo ──────
+
+    @classmethod
+    def send_buttons(cls, to: str, text: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Alias para send_menu_button (compatibilidade)."""
+        return cls.send_menu_button(to, text, buttons)
+
+    @classmethod
+    def send_menu_button(cls, to: str, text: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Envia botões interativos reais."""
+        choices = [f"{b.get('text', '')}|{b.get('id', '')}" for b in buttons]
+        return cls.send_menu(to, text, choices, menu_type="button")
+
+    @classmethod
+    def send_list(
+        cls,
+        to: str,
+        header: str,
+        body: str,
+        footer: str,
+        sections: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Alias para send_menu_list (compatibilidade)."""
+        return cls.send_menu_list(to, header, body, footer, sections)
+
+    @classmethod
+    def send_menu_list(
+        cls,
+        to: str,
+        header: str,
+        body: str,
+        footer: str,
+        sections: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Envia lista interativa real."""
+        choices = []
+        for sec in sections:
+            choices.append(f"[{sec.get('title', 'Opções')}]")
+            for row in sec.get("rows", []):
+                choices.append(f"{row.get('title', '')}|{row.get('rowId', '')}|{row.get('description', '')}")
+        
+        return cls.send_menu(to, body, choices, menu_type="list", footer=footer)

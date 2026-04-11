@@ -785,14 +785,18 @@ async def whatsapp_incoming_webhook(request: Request):
     try:
         import json as _json
         raw_payload = _json.loads(body_bytes)
-    except Exception:
+    except Exception as e:
+        print(f"[WHATSAPP-DEBUG] Falha ao parsear JSON: {e}", file=__import__('sys').stderr)
         return {"status": "ok", "detail": "invalid_json"}
+
+    print(f"[WHATSAPP-DEBUG] CHAVES DO PAYLOAD RECEBIDO: {list(raw_payload.keys())}", file=__import__('sys').stderr)
 
     # ── Normaliza payload para formato interno ────────────────────────────────
     try:
         normalized = _normalize_uazapi_payload(raw_payload)
+        print(f"[WHATSAPP-DEBUG] NORMALIZADO: tipo={normalized.get('tipo')} msg_len={len(str(normalized.get('mensagem', '')))} phone='{normalized.get('telefone')}' direction={normalized.get('direction')}", file=__import__('sys').stderr)
     except Exception as e:
-        print(f"[WHATSAPP] Erro ao normalizar payload: {type(e).__name__}")
+        print(f"[WHATSAPP-DEBUG] Erro ao normalizar payload: {type(e).__name__} - {e}", file=__import__('sys').stderr)
         return {"status": "ok", "detail": "normalization_error"}
 
     telefone = normalized["telefone"]
@@ -804,10 +808,13 @@ async def whatsapp_incoming_webhook(request: Request):
 
     # ── Ignora mensagens enviadas pela própria Axis (fromMe) ─────────────────
     if direction == "outbound":
+        print("[WHATSAPP-DEBUG] REJEITADO: direction=outbound", file=__import__('sys').stderr)
         return {"status": "ok", "detail": "outbound_ignored"}
 
     # ── Ignora payloads sem telefone ou mensagem ──────────────────────────────
     if not telefone or not mensagem:
+        # Pano de fundo: loga exatamente o que estava vazio
+        print(f"[WHATSAPP-DEBUG] REJEITADO (empty_payload): telefone='{telefone}' mensagem='{mensagem}'", file=__import__('sys').stderr)
         return {"status": "ok", "detail": "empty_payload_ignored"}
 
     # ── Log sem dados pessoais identificadores ────────────────────────────────

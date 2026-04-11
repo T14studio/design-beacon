@@ -180,9 +180,11 @@ class _UazapiClient:
 
     @staticmethod
     def _headers() -> Dict[str, str]:
+        token = WhatsAppConfig.token()
         return {
             "Content-Type": "application/json",
-            "token": WhatsAppConfig.token(),
+            "token": token,
+            "apikey": token, # Necessário para instâncias Evolution API / Agente LA
         }
 
     @classmethod
@@ -298,12 +300,20 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
         body = {
-            "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
             "text": text,
+            "options": {
+                "delay": 1200,
+                "presence": "composing"
+            }
         }
-        return _UazapiClient.post("/message/sendText", body)
+        # Endpoint padrão Evolution API / Agente LA
+        return _UazapiClient.post(f"/message/sendText/{instance_path}", body)
 
     # ── Envio de imagem ────────────────────────────────────────────────────────
 
@@ -328,13 +338,20 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
         body = {
-            "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
-            "imageUrl": image_url,
-            "caption": caption or "",
+            "mediaMessage": {
+                "mediatype": "image",
+                "media": image_url,
+                "caption": caption or ""
+            }
         }
-        return _UazapiClient.post("/message/sendImage", body)
+        # A maioria das instâncias Evolution mapeiam isso em sendMedia ou sendImage
+        return _UazapiClient.post(f"/message/sendMedia/{instance_path}", body)
 
     # ── Envio de documento ────────────────────────────────────────────────────
 
@@ -360,14 +377,20 @@ class WhatsAppService:
         if not phone:
             return {"ok": False, "error": "invalid_phone"}
 
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
         body = {
-            "instanceId": WhatsAppConfig.instance_id(),
             "number": phone,
-            "documentUrl": file_url,
-            "fileName": filename or "documento",
-            "caption": caption or "",
+            "mediaMessage": {
+                "mediatype": "document",
+                "media": file_url,
+                "fileName": filename or "documento",
+                "caption": caption or ""
+            }
         }
-        return _UazapiClient.post("/message/sendDocument", body)
+        return _UazapiClient.post(f"/message/sendMedia/{instance_path}", body)
 
     # ── Envio de botões de resposta rápida ────────────────────────────────────
 

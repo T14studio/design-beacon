@@ -646,9 +646,16 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
     Normaliza payload bruto da Uazapi para formato interno padrão.
     Suporta tanto o formato aninhado (Baileys/Uazapi v2) quanto o formato plano (Agente LA).
     """
-    # 1. Tentar extrair Telefone (Prioridade para o formato plano visto no log)
+    # Normalização de estrutura "Agente LA" (onde as infos estão dentro de 'chat' e 'message')
+    chat_obj = raw.get("chat") if isinstance(raw.get("chat"), dict) else {}
+    msg_obj = raw.get("message") if isinstance(raw.get("message"), dict) else {}
+
+    # 1. Tentar extrair Telefone
     remote_jid = (
-        raw.get("phone")
+        chat_obj.get("phone")
+        or chat_obj.get("wa_chatId")
+        or msg_obj.get("chatId")
+        or raw.get("phone")
         or raw.get("wa_chatId")
         or (raw.get("data") or {}).get("remoteJid")
         or raw.get("remoteJid")
@@ -659,7 +666,10 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
 
     # 2. Tentar extrair Nome
     nome = (
-        raw.get("wa_name")
+        chat_obj.get("wa_name")
+        or chat_obj.get("name")
+        or msg_obj.get("senderName")
+        or raw.get("wa_name")
         or raw.get("name")
         or (raw.get("data") or {}).get("pushName")
         or ""
@@ -668,7 +678,11 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
     # 3. Tentar extrair Mensagem e Tipo
     tipo = "text"
     mensagem = (
-        raw.get("wa_lastMessageTextVote")
+        msg_obj.get("text")
+        or msg_obj.get("content")
+        or chat_obj.get("wa_lastMessageTextVote")
+        or chat_obj.get("wa_lastMessageText")
+        or raw.get("wa_lastMessageTextVote")
         or raw.get("wa_lastMessageText")
         or raw.get("body")
         or ""
@@ -711,13 +725,17 @@ def _normalize_uazapi_payload(raw: dict) -> dict:
 
     # Message ID
     message_id = (
-        raw.get("id") 
+        msg_obj.get("id")
+        or msg_obj.get("messageId")
+        or raw.get("id") 
         or raw.get("wa_lastMessageId")
         or (raw.get("data") or {}).get("id")
     )
 
     # Direction: fromMe indica mensagem enviada pelo número comercial
-    from_me = raw.get("fromMe", False)
+    from_me = msg_obj.get("fromMe", False)
+    if not isinstance(from_me, bool):
+        from_me = raw.get("fromMe", False)
     if not from_me and isinstance(raw.get("data"), dict):
         from_me = raw["data"].get("key", {}).get("fromMe", False)
     

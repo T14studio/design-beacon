@@ -41,14 +41,12 @@ from typing import Optional, List, Dict, Any
 # ── Leitura de configuração (backend-only, jamais exposto ao frontend) ─────────
 
 def _cfg(key: str, default: str = "") -> str:
-    """Lê variável de ambiente com fallback seguro e fallbacks fixos do projeto."""
-    val = os.getenv(key, default).strip()
-    if not val:
-        # Fallbacks das credenciais fornecidas pelo usuário
-        if key == "UAZAPI_BASE_URL": return "https://axis-imobiliaria.uazapi.com"
-        if key == "UAZAPI_TOKEN": return "Pgr90d3UQFNXumppV2nHKulS8VEGO15qcVl17xce2fl7By5Wlh"
-        if key == "WHATSAPP_ENABLED": return "true"
-    return val
+    """
+    Lê variável de ambiente com fallback seguro.
+    SEGURANÇA: Nenhuma credencial real deve ser hardcoded aqui.
+    Todas as credenciais (token, URL, secret) devem ser configuradas via variáveis de ambiente.
+    """
+    return os.getenv(key, default).strip()
 
 
 class WhatsAppConfig:
@@ -187,12 +185,13 @@ class _UazapiClient:
     @staticmethod
     def _headers() -> Dict[str, str]:
         token = WhatsAppConfig.token()
-        # Log de segurança: mostra apenas o início para conferência no Render
-        print(f"[WHATSAPP-AUTH] Usando token iniciado em: {token[:4]}...", file=__import__('sys').stderr)
         return {
             "Content-Type": "application/json",
             "Accept": "application/json",
             "token": token,
+            "apikey": token,
+            "Authorization": f"Bearer {token}",
+            "X-Token": token
         }
 
     @classmethod
@@ -313,12 +312,9 @@ class WhatsAppService:
 
         body = {
             "number": phone,
-            "text": text,
-            "delay": 2,
-            "readchat": True,
+            "text": text
         }
-        # Endpoint oficial Uazapi: POST /send/text com header token
-        print(f"[WHATSAPP] Enviando via POST /send/text → number={phone[:6]}...", file=__import__('sys').stderr)
+        # Tentamos o endpoint oficial mais comum primeiro
         return _UazapiClient.post("/send/text", body)
 
     # ── Envio de imagem ────────────────────────────────────────────────────────

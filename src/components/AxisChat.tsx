@@ -120,8 +120,8 @@ export default function AxisChat({ initialMessage, propertyContext, isOpen, onCl
       if (messages.length === 0 && !initialMessage) {
         const savedName = localStorage.getItem("axis_user_name");
         const greeting = savedName
-          ? `Olá, ${savedName}! Sou a Axis, assistente virtual da Ética. Em que posso ajudar?`
-          : "Olá! Sou a Axis, assistente virtual da Ética. Como posso ajudar você?";
+          ? `Olá, ${savedName}! Eu sou a Axis, assistente virtual da Ética. Com o que posso te ajudar agora?`
+          : "Olá! Eu sou a Axis, assistente virtual da Ética. Posso te ajudar com compra, locação, contratos, documentos, manutenção, boletos e pagamentos. Me conta o que você precisa e eu te direciono da forma mais rápida possível.";
         setMessages([{ role: "assistant", content: greeting }]);
       }
       // SECURITY: endpoint apenas em dev

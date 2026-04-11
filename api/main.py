@@ -33,22 +33,21 @@ app = FastAPI(title="Axis Backend", version="1.0.1")
 
 
 # ── CORS Middleware ─────────────────────────────────────────────────────────────
-# Tenta pegar CORS_ORIGIN do ambiente, senão aceita a URL atual do Netlify e localhost
+# Tenta pegar CORS_ORIGIN do ambiente, senão aceita URLs conhecidas + localhost
 cors_origin = os.getenv("CORS_ORIGIN")
 if cors_origin:
-    allowed_origins = [cors_origin]
+    allowed_origins = [o.strip() for o in cors_origin.split(",") if o.strip()]
 else:
     allowed_origins = [
         "https://astonishing-cobbler-78d913.netlify.app",
         "https://teal-wolverine-555626.hostingersite.com",
         "http://localhost:5173",
         "http://localhost:8000",
-        "*"
     ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Permite tudo para evitar erro de CORS
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -344,6 +343,7 @@ async def handle_turn(payload: TurnPayload, request: Request):
             "dados_coletados":  dados_coletados,
             "estado_anterior":  last_assistant_meta,
             "sessao_acumulada": accumulated_state,
+            "canal":            payload.channel,
         }
         
         # ── 9. Call OpenAI ────────────────────────────────────────────────────────
@@ -946,7 +946,7 @@ async def whatsapp_incoming_webhook(request: Request):
         ai_result = await OpenAIService.process_turn(mensagem, history, context)
 
         # ── 8. Processa output da Axis ────────────────────────────────────────
-        reply         = ai_result.get("message_to_user", "Olá! Seja bem-vindo. Como posso ajudar?")
+        reply         = ai_result.get("message_to_user", "Olá! Eu sou a Axis, assistente virtual da Ética. Me conta o que você precisa e eu te direciono da forma mais rápida possível.")
         new_state     = ai_result.get("etapa_da_conversa", current_state)
         handed_off    = ai_result.get("handoff_recomendado", False)
         setor_destino = ai_result.get("setor_destino")

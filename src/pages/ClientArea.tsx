@@ -72,7 +72,9 @@ export default function ClientArea() {
         toast.message("Nenhum contrato encontrado para este documento.");
       }
     } catch (e: any) {
-      console.error(e);
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        console.error("[ClientArea] Erro ao consultar contratos:", e);
+      }
       toast.error("Não consegui consultar seus contratos agora. Tente novamente em instantes.");
     } finally {
       setIsLoading(false);

@@ -11,19 +11,24 @@ client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 
-_system_prompt = ""
+_system_prompt_site = ""
+_system_prompt_whatsapp = ""
 _output_schema = {}
 
 def load_prompts():
-    global _system_prompt, _output_schema
+    global _system_prompt_site, _system_prompt_whatsapp, _output_schema
     try:
-        with open(PROMPTS_DIR / "system_prompt.md", "r", encoding="utf-8") as f:
-            _system_prompt = f.read()
+        with open(PROMPTS_DIR / "system_prompt_site.md", "r", encoding="utf-8") as f:
+            _system_prompt_site = f.read()
+        with open(PROMPTS_DIR / "system_prompt_whatsapp.md", "r", encoding="utf-8") as f:
+            _system_prompt_whatsapp = f.read()
+            
         with open(PROMPTS_DIR / "axis_output_schema.json", "r", encoding="utf-8") as f:
             _output_schema = json.load(f)
     except Exception as e:
         print(f"Warning: Failed to load prompts from {PROMPTS_DIR}: {e}")
-        _system_prompt = "Você é o Axis."
+        _system_prompt_site = "Você é o Axis do site."
+        _system_prompt_whatsapp = "Você é o Axis do WhatsApp."
         _output_schema = {
             "name": "axis_turn_output",
             "schema": {
@@ -45,8 +50,13 @@ load_prompts()
 class OpenAIService:
     @staticmethod
     async def process_turn(user_message: str, history: list, context: dict) -> dict:
-        # ── Prepare system prompt ──────────────────────────────────────────────
-        prompt = _system_prompt
+        # ── Escolha o System Prompt pelo canal ─────────────────────────────────
+        canal = context.get("canal", "site").lower()
+        if "whatsapp" in canal:
+            prompt = _system_prompt_whatsapp
+        else:
+            prompt = _system_prompt_site
+            
         prompt = prompt.replace("{{NOME_DA_IMOBILIARIA}}", context.get("nome_imobiliaria", "Ética"))
         prompt = prompt.replace("{{ESTADO_ATUAL}}", context.get("current_state", "recepcao"))
         prompt = prompt.replace("{{DADOS_COLETADOS}}", json.dumps(context.get("dados_coletados", {}), ensure_ascii=False))
@@ -108,9 +118,15 @@ class OpenAIService:
                     "⚠️ ATENÇÃO: Este imóvel é SOMENTE PARA LOCAÇÃO. É totalmente PROIBIDO perguntar se o cliente busca 'compra ou locação'. Vá direto ao ponto (ex: agendar visita, garantias)."
                 )
             
-            session_summary_parts.append(
-                "📸 FOTOS DISPONÍVEIS: Se o cliente pedir para 'ver opções', 'ver fotos', 'mostrar imagens', você DEVE setar 'exibir_fotos_galeria': true e responder: 'Claro, estou abrindo a galeria de fotos do imóvel para você analisar!'. NUNCA diga que não consegue mostrar."
-            )
+            # Ajustando fala contextual para foto de acordo com o canal
+            if "whatsapp" in canal:
+                session_summary_parts.append(
+                    "📸 FOTOS: Não é possível navegar visualmente por aqui. Responda orientando acionar um de nossos corretores para ver mais fotos do imóvel."
+                )
+            else:
+                session_summary_parts.append(
+                    "📸 FOTOS DISPONÍVEIS: Se o cliente pedir para 'ver opções', 'ver fotos', 'mostrar imagens', você DEVE setar 'exibir_fotos_galeria': true e responder: 'Claro, estou abrindo a galeria de fotos do imóvel para você analisar!'. NUNCA diga que não consegue mostrar."
+                )
 
         if sessao.get("estagio_jornada"):
             session_summary_parts.append(f"Estágio da jornada: {sessao['estagio_jornada']}")
@@ -159,7 +175,7 @@ class OpenAIService:
             if result.get("etapa_da_conversa") == "recepcao" and nome_efetivo:
                 result["etapa_da_conversa"] = "qualificacao"
             
-            print(f"[OpenAI] etapa={result.get('etapa_da_conversa')} setor={result.get('setor_destino')} nome={result.get('nome_cliente')} handoff={result.get('handoff_recomendado')}")
+            print(f"[OpenAI] canal={canal} etapa={result.get('etapa_da_conversa')} setor={result.get('setor_destino')} nome={result.get('nome_cliente')} handoff={result.get('handoff_recomendado')}")
             return result
         except Exception as e:
             print(f"OpenAI Error: {e}")

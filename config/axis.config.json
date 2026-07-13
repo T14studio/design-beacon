@@ -1,0 +1,18 @@
+{
+  "imobiliaria": {
+    "nome": "[NOME_DA_IMOBILIARIA]",
+    "site": "[URL_DO_SITE]",
+    "whatsapp": "[NUMERO_WHATSAPP]",
+    "email": "[EMAIL_CONTATO]",
+    "horario_atendimento": "Seg–Sex 9h–18h | Sáb 9h–13h"
+  },
+  "sla_por_setor": {
+    "comercial": "Retorno em até 30 minutos durante horário comercial.",
+    "administrativo": "Retorno em até 2 horas durante horário comercial.",
+    "financeiro": "Retorno em até 1 hora durante horário comercial.",
+    "prioridade_alta": "Retorno imediato. Um atendente já foi notificado.",
+    "manutencao_prioritaria": "Emergência registrada. Equipe técnica notificada com prioridade."
+  },
+  "canais": ["whatsapp", "site"],
+  "versao": "1.0"
+}

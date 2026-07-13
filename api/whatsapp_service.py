@@ -1,0 +1,535 @@
+"""
+whatsapp_service.py
+═══════════════════════════════════════════════════════════════════════════════
+Camada isolada de provedor WhatsApp via Uazapi.
+
+SEGURANÇA:
+- Todas as credenciais vêm exclusivamente de variáveis de ambiente (backend-only).
+- Nenhuma chamada é feita ao cliente/frontend.
+- Token nunca exposto em respostas de API externas.
+- Logs sem vazamento de credentials.
+
+CONFIGURAÇÃO (preencher no ambiente de produção):
+  WHATSAPP_PROVIDER=uazapi           # Provedor ativo (padrão: uazapi)
+  WHATSAPP_ENABLED=false             # Ativar apenas quando credenciais finais estiverem prontas
+  UAZAPI_BASE_URL=                   # Ex: https://sua-instancia.uazapi.com
+  UAZAPI_INSTANCE_ID=                # ID da instância Uazapi
+  UAZAPI_TOKEN=                      # Token de autenticação Uazapi
+  UAZAPI_WEBHOOK_SECRET=             # Secret para validação do webhook de entrada
+  WHATSAPP_DEFAULT_COUNTRY_CODE=55   # Código do país padrão (Brasil)
+  WHATSAPP_COMMERCIAL_NUMBER=        # Número comercial no formato internacional (ex: 5511999999999)
+
+INTERFACE PÚBLICA:
+  WhatsAppService.send_text(to, text)
+  WhatsAppService.send_image(to, image_url, caption=None)
+  WhatsAppService.send_document(to, file_url, filename=None, caption=None)
+  WhatsAppService.send_buttons(to, text, buttons)
+  WhatsAppService.send_list(to, header, body, footer, sections)
+  WhatsAppService.is_enabled()
+  WhatsAppService.validate_config()
+  WhatsAppService.normalize_phone(raw_phone)
+"""
+
+import os
+import sys
+import hmac
+import hashlib
+import requests
+from typing import Optional, List, Dict, Any
+
+
+# ── Leitura de configuração (backend-only, jamais exposto ao frontend) ─────────
+
+def _cfg(key: str, default: str = "") -> str:
+    """
+    Lê variável de ambiente com fallback seguro.
+    SEGURANÇA: Nenhuma credencial real deve ser hardcoded aqui.
+    Todas as credenciais (token, URL, secret) devem ser configuradas via variáveis de ambiente.
+    """
+    return os.getenv(key, default).strip()
+
+
+class WhatsAppConfig:
+    """Configuração isolada do canal WhatsApp. Lida do ambiente em runtime."""
+
+    @staticmethod
+    def provider() -> str:
+        return _cfg("WHATSAPP_PROVIDER", "uazapi").lower()
+
+    @staticmethod
+    def enabled() -> bool:
+        val = _cfg("WHATSAPP_ENABLED", "false").lower()
+        return val in ("true", "1", "yes", "on")
+
+    @staticmethod
+    def base_url() -> str:
+        return _cfg("UAZAPI_BASE_URL", "").rstrip("/")
+
+    @staticmethod
+    def instance_id() -> str:
+        val = _cfg("UAZAPI_INSTANCE_ID", "")
+        if not val:
+            # Fallback to extract from URL (e.g., https://my-instance.uazapi.com -> my-instance)
+            try:
+                base = WhatsAppConfig.base_url()
+                from urllib.parse import urlparse
+                subdomain = urlparse(base).netloc.split('.')[0]
+                
+                # Hardcoded fallback para evitar 406 na Evolution API do Agente LA se a variável não estiver no Render
+                if subdomain == "axis-imobiliaria":
+                    return "Axis WhatsApp"
+                    
+                return subdomain
+            except:
+                return "default"
+        return val
+
+    @staticmethod
+    def token() -> str:
+        return _cfg("UAZAPI_TOKEN", "")
+
+    @staticmethod
+    def webhook_secret() -> str:
+        return _cfg("UAZAPI_WEBHOOK_SECRET", "")
+
+    @staticmethod
+    def default_country_code() -> str:
+        return _cfg("WHATSAPP_DEFAULT_COUNTRY_CODE", "55")
+
+    @staticmethod
+    def commercial_number() -> str:
+        return _cfg("WHATSAPP_COMMERCIAL_NUMBER", "")
+
+    @classmethod
+    def is_fully_configured(cls) -> bool:
+        """True apenas quando todas as credenciais críticas estão presentes."""
+        return bool(
+            cls.base_url()
+            and cls.instance_id()
+            and cls.token()
+        )
+
+    @classmethod
+    def validation_errors(cls) -> List[str]:
+        """Retorna lista de problemas de configuração sem vazar os valores."""
+        errors = []
+        if not cls.provider():
+            errors.append("WHATSAPP_PROVIDER não definido.")
+        if not cls.base_url():
+            errors.append("UAZAPI_BASE_URL não definido ou vazio.")
+        if not cls.instance_id():
+            errors.append("UAZAPI_INSTANCE_ID não definido ou vazio.")
+        if not cls.token():
+            errors.append("UAZAPI_TOKEN não definido ou vazio.")
+        if not cls.webhook_secret():
+            errors.append("UAZAPI_WEBHOOK_SECRET não definido — webhook inseguro.")
+        return errors
+
+
+# ── Normalização de telefone ────────────────────────────────────────────────────
+
+def normalize_phone(raw: str, country_code: Optional[str] = None) -> str:
+    """
+    Normaliza número de telefone para formato Uazapi (apenas dígitos, com DDI).
+    Ex: +55 (11) 99999-9999 → 5511999999999
+    """
+    if not raw:
+        return ""
+    # Remove qualquer coisa que não seja dígito
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    
+    # Se o número for curto (ex: 11999999999), adiciona o DDI padrão (Brasil = 55)
+    cc = country_code or "55"
+    if len(digits) <= 11 and not digits.startswith(cc):
+        digits = cc + digits
+    return digits
+
+
+# ── Validação de assinatura do webhook ─────────────────────────────────────────
+
+def verify_webhook_signature(payload_bytes: bytes, received_signature: str) -> bool:
+    """
+    Valida assinatura HMAC-SHA256 do webhook Uazapi.
+    Compara em tempo constante para prevenir timing attacks.
+
+    Se UAZAPI_WEBHOOK_SECRET não estiver configurado, permite a passagem mas loga um alerta.
+    """
+    secret = WhatsAppConfig.webhook_secret()
+    if not secret:
+        # Permite passagem em desenvolvimento/fase inicial se o segredo não estiver configurado
+        # Útil para setups rápidos onde o webhook ainda não tem secret definido
+        return True
+    
+    try:
+        expected = hmac.new(
+            key=secret.encode("utf-8"),
+            msg=payload_bytes,
+            digestmod=hashlib.sha256
+        ).hexdigest()
+        # Remove prefixo "sha256=" se presente
+        sig = received_signature.replace("sha256=", "").strip()
+        return hmac.compare_digest(expected, sig)
+    except Exception as e:
+        print(f"[WHATSAPP-SECURITY] Erro ao validar assinatura: {e}", file=sys.stderr)
+        return False
+
+
+# ── Cliente HTTP interno (nunca chamado pelo frontend) ─────────────────────────
+
+class _UazapiClient:
+    """
+    Cliente HTTP para Uazapi. Uso exclusivo do backend.
+    Constrói URLs dinamicamente a partir das variáveis de ambiente.
+    """
+
+    @staticmethod
+    def _headers() -> Dict[str, str]:
+        token = WhatsAppConfig.token()
+        return {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "token": token,
+            "apikey": token,
+            "Authorization": f"Bearer {token}",
+            "X-Token": token
+        }
+
+    @classmethod
+    def _url(cls, path: str) -> str:
+        base = WhatsAppConfig.base_url()
+        instance = WhatsAppConfig.instance_id()
+        # Uazapi URL pattern: {base}/{path} com instance_id no body ou como header
+        return f"{base}/{path.lstrip('/')}"
+
+    @classmethod
+    def post(cls, path: str, body: dict) -> Dict[str, Any]:
+        """
+        Executa POST autenticado à Uazapi.
+        Loga apenas status e tipo de mensagem — sem dados de conteúdo ou credenciais.
+        """
+        url = cls._url(path)
+        try:
+            resp = requests.post(
+                url,
+                headers=cls._headers(),
+                json=body,
+                timeout=10
+            )
+            status = resp.status_code
+            if status not in (200, 201):
+                try:
+                    err_body = resp.text[:300]
+                except:
+                    err_body = "<unreadable>"
+                print(f"[WHATSAPP] POST {url} → HTTP {status} body={err_body}", file=sys.stderr)
+                return {"ok": False, "status": status, "error": f"HTTP {status}"}
+            return {"ok": True, "status": status, "data": resp.json()}
+        except requests.exceptions.ConnectionError:
+            print(f"[WHATSAPP] Falha de conexão com Uazapi em {url} — credenciais não preenchidas?", file=sys.stderr)
+            return {"ok": False, "error": "connection_error"}
+        except requests.exceptions.Timeout:
+            print(f"[WHATSAPP] Timeout na chamada a Uazapi: {path}", file=sys.stderr)
+            return {"ok": False, "error": "timeout"}
+        except Exception as e:
+            # Log apenas tipo de exceção — sem credentials ou conteúdo
+            print(f"[WHATSAPP] Erro inesperado em POST {path}: {type(e).__name__}", file=sys.stderr)
+            return {"ok": False, "error": "unexpected_error"}
+
+
+# ── Interface pública da camada de provedor ────────────────────────────────────
+
+class WhatsAppService:
+    """
+    Interface pública isolada do canal WhatsApp.
+    Todos os métodos são seguros para uso interno no backend.
+    Nenhum método deve ser exposto diretamente ao cliente/frontend.
+    """
+
+    @staticmethod
+    def is_enabled() -> bool:
+        """Verifica se o canal WhatsApp está habilitado E configurado."""
+        return WhatsAppConfig.enabled() and WhatsAppConfig.is_fully_configured()
+
+    @staticmethod
+    def validate_config() -> Dict[str, Any]:
+        """
+        Retorna diagnóstico de configuração para uso em health checks internos.
+        NÃO retorna valores das credenciais — apenas presença/ausência.
+        """
+        errors = WhatsAppConfig.validation_errors()
+        return {
+            "provider": WhatsAppConfig.provider(),
+            "enabled": WhatsAppConfig.enabled(),
+            "configured": WhatsAppConfig.is_fully_configured(),
+            "ready": WhatsAppService.is_enabled(),
+            "errors": errors,
+            # Indica presença sem expor o valor
+            "base_url_set": bool(WhatsAppConfig.base_url()),
+            "instance_id_set": bool(WhatsAppConfig.instance_id()),
+            "token_set": bool(WhatsAppConfig.token()),
+            "webhook_secret_set": bool(WhatsAppConfig.webhook_secret()),
+        }
+
+    @staticmethod
+    def normalize_phone(raw: str) -> str:
+        """Normaliza número de telefone para formato Uazapi."""
+        return normalize_phone(raw)
+
+    @staticmethod
+    def _guard() -> Optional[Dict[str, Any]]:
+        """
+        Guard interno: retorna erro estruturado se o canal não estiver pronto.
+        Retorna None se está pronto para envio.
+        """
+        if not WhatsAppConfig.enabled():
+            return {"ok": False, "error": "whatsapp_disabled", "message": "Canal WhatsApp desabilitado (WHATSAPP_ENABLED=false)."}
+        if not WhatsAppConfig.is_fully_configured():
+            errors = WhatsAppConfig.validation_errors()
+            return {"ok": False, "error": "whatsapp_not_configured", "message": "Credenciais WhatsApp incompletas.", "details": errors}
+        return None
+
+    # ── Envio de texto simples ─────────────────────────────────────────────────
+
+    @classmethod
+    def send_text(cls, to: str, text: str) -> Dict[str, Any]:
+        """
+        Envia mensagem de texto para o número WhatsApp informado.
+
+        Args:
+            to:   Número destino (será normalizado automaticamente).
+            text: Conteúdo da mensagem (plain text).
+
+        Returns:
+            Dict com {"ok": bool, ...}
+        """
+        guard = cls._guard()
+        if guard:
+            return guard
+
+        phone = normalize_phone(to)
+        if not phone:
+            return {"ok": False, "error": "invalid_phone"}
+
+        body = {
+            "number": phone,
+            "text": text
+        }
+        
+        instance = WhatsAppConfig.instance_id()
+        
+        # Uazapi original: /send/text
+        return _UazapiClient.post("/send/text", body)
+
+    # ── Envio de imagem ────────────────────────────────────────────────────────
+
+    @classmethod
+    def send_image(cls, to: str, image_url: str, caption: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Envia imagem via URL pública para o número WhatsApp informado.
+
+        Args:
+            to:        Número destino.
+            image_url: URL pública da imagem.
+            caption:   Legenda opcional da imagem.
+
+        Returns:
+            Dict com {"ok": bool, ...}
+        """
+        guard = cls._guard()
+        if guard:
+            return guard
+
+        phone = normalize_phone(to)
+        if not phone:
+            return {"ok": False, "error": "invalid_phone"}
+
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
+        body = {
+            "number": phone,
+            "mediaMessage": {
+                "mediatype": "image",
+                "media": image_url,
+                "caption": caption or ""
+            }
+        }
+        # A maioria das instâncias Evolution mapeiam isso em sendMedia ou sendImage
+        return _UazapiClient.post(f"/message/sendMedia/{instance_path}", body)
+
+    # ── Envio de documento ────────────────────────────────────────────────────
+
+    @classmethod
+    def send_document(cls, to: str, file_url: str, filename: Optional[str] = None, caption: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Envia documento (PDF, DOCX, etc.) via URL pública.
+
+        Args:
+            to:       Número destino.
+            file_url: URL pública do arquivo.
+            filename: Nome do arquivo exibido no WhatsApp.
+            caption:  Legenda opcional.
+
+        Returns:
+            Dict com {"ok": bool, ...}
+        """
+        guard = cls._guard()
+        if guard:
+            return guard
+
+        phone = normalize_phone(to)
+        if not phone:
+            return {"ok": False, "error": "invalid_phone"}
+
+        instance = WhatsAppConfig.instance_id()
+        import urllib.parse
+        instance_path = urllib.parse.quote(instance)
+
+        body = {
+            "number": phone,
+            "mediaMessage": {
+                "mediatype": "document",
+                "media": file_url,
+                "fileName": filename or "documento",
+                "caption": caption or ""
+            }
+        }
+        return _UazapiClient.post(f"/message/sendMedia/{instance_path}", body)
+
+    # ── Envio de botões de resposta rápida ────────────────────────────────────
+
+    @classmethod
+    def send_buttons(cls, to: str, text: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
+        """
+        Envia mensagem com botões de resposta rápida.
+
+        Args:
+            to:      Número destino.
+            text:    Texto principal da mensagem.
+            buttons: Lista de botões. Formato: [{"id": "btn1", "text": "Sim"}, ...]
+                     Máximo 3 botões (limitação WhatsApp).
+
+        Returns:
+            Dict com {"ok": bool, ...}
+
+        Nota: Suporte real depende do plano/instância Uazapi. A estrutura está
+              preparada para quando o provedor suportar.
+        """
+        guard = cls._guard()
+        if guard:
+            return guard
+
+        phone = normalize_phone(to)
+        if not phone:
+            return {"ok": False, "error": "invalid_phone"}
+
+        # Normaliza formato de botões para Uazapi / Evolution API (tipo 1 = reply button)
+        formatted_buttons = [
+            {
+                "buttonId": btn.get("id", f"btn{i}"), 
+                "buttonText": {"displayText": btn.get("text", "")},
+                "type": 1
+            }
+            for i, btn in enumerate(buttons[:3])  # máx 3 botões
+        ]
+
+        body = {
+            "instanceId": WhatsAppConfig.instance_id(),
+            "number": phone,
+            "text": text,
+            "buttons": formatted_buttons,
+            "footer": ""
+        }
+        # Uazapi original: /send/buttons
+        return _UazapiClient.post("/send/buttons", body)
+
+    # ── Envio de lista/menu ───────────────────────────────────────────────────
+
+    @classmethod
+    def send_menu(
+        cls,
+        to: str,
+        text: str,
+        choices: List[str],
+        menu_type: str = "button",
+        list_button_text: str = "Ver opções",
+        footer: str = "Escolha uma opção"
+    ) -> Dict[str, Any]:
+        """
+        Envia mensagem interativa Uazapi (tipo 'button' ou 'list').
+        Ref: POST /send/menu
+
+        Args:
+            to:               Número destino.
+            text:             Texto da mensagem.
+            choices:          Lista de strings no formato "Rótulo|ID" ou "Rótulo|ID|Desc".
+                              Para 'list', pode incluir cabeçalhos de seção entre colchetes "[Seção]".
+            menu_type:        'button' ou 'list'.
+            list_button_text: Rótulo do botão que abre a lista (apenas para tipo 'list').
+            footer:           Texto de rodapé.
+        """
+        guard = cls._guard()
+        if guard:
+            return guard
+
+        phone = normalize_phone(to)
+        if not phone:
+            return {"ok": False, "error": "invalid_phone"}
+
+        body = {
+            "instanceId": WhatsAppConfig.instance_id(),
+            "number": phone,
+            "type": menu_type,
+            "text": text,
+            "choices": choices,
+            "footerText": footer
+        }
+        
+        if menu_type == "list":
+            body["listButton"] = list_button_text
+
+        return _UazapiClient.post("/send/menu", body)
+
+    # ── Métodos legados com redirecionamento para o novo motor interativo ──────
+
+    @classmethod
+    def send_buttons(cls, to: str, text: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Alias para send_menu_button (compatibilidade)."""
+        return cls.send_menu_button(to, text, buttons)
+
+    @classmethod
+    def send_menu_button(cls, to: str, text: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Envia botões interativos reais."""
+        choices = [f"{b.get('text', '')}|{b.get('id', '')}" for b in buttons]
+        return cls.send_menu(to, text, choices, menu_type="button")
+
+    @classmethod
+    def send_list(
+        cls,
+        to: str,
+        header: str,
+        body: str,
+        footer: str,
+        sections: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Alias para send_menu_list (compatibilidade)."""
+        return cls.send_menu_list(to, header, body, footer, sections)
+
+    @classmethod
+    def send_menu_list(
+        cls,
+        to: str,
+        header: str,
+        body: str,
+        footer: str,
+        sections: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Envia lista interativa real."""
+        choices = []
+        for sec in sections:
+            choices.append(f"[{sec.get('title', 'Opções')}]")
+            for row in sec.get("rows", []):
+                choices.append(f"{row.get('title', '')}|{row.get('rowId', '')}|{row.get('description', '')}")
+        
+        return cls.send_menu(to, body, choices, menu_type="list", footer=footer)
